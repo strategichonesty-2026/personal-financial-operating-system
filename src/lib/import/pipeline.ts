@@ -4,6 +4,10 @@ import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
 import { getParser } from './parsers';
 import { parseWellsFargo } from './parsers/wells-fargo';
+import { parseCiti }       from './parsers/citi';
+import { parseSynchrony }  from './parsers/synchrony';
+import { parseChase }      from './parsers/chase';
+import { parseUSBank }     from './parsers/us-bank';
 import { loadPatterns, normalizeTransaction } from './normalizer';
 import { filterDuplicates } from './duplicate-detector';
 import { detectTransfers } from './transfer-detector';
@@ -56,8 +60,16 @@ export async function runImportPipeline(
   try {
     // 5. Parse transactions (use coordinate-aware parser for WF)
     const period = { year: statementYear, month: statementMonth };
-    const parsed = institution === 'wells_fargo'
-      ? parseWellsFargo(extracted, period)
+    const coordinateParsers: Record<string, typeof parseWellsFargo> = {
+      wells_fargo: parseWellsFargo,
+      citi:        parseCiti,
+      synchrony:   parseSynchrony,
+      chase:       parseChase,
+      us_bank:     parseUSBank,
+    };
+    const coordinateParser = coordinateParsers[institution];
+    const parsed = coordinateParser
+      ? coordinateParser(extracted, period)
       : parser.parse(extracted.text, period);
 
     // 6. Load merchant patterns
