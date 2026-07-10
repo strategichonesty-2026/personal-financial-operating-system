@@ -1,4 +1,10 @@
-import { PdfReader } from 'pdfreader';
+import { execFile, spawn } from 'child_process';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 export interface PdfTextItem {
   text: string;
@@ -9,52 +15,45 @@ export interface PdfTextItem {
 
 export interface ExtractedPdf {
   items: PdfTextItem[];
-  text:  string;   // flat text for institution detection
+  text:  string;
   pages: number;
   filename: string;
 }
 
-export function extractPdfText(
+// Path to our Python extraction script
+const SCRIPT_PATH = join(process.cwd(), 'scripts', 'extract_pdf.py');
+
+export async function extractPdfText(
   buffer: Buffer,
   filename: string
 ): Promise<ExtractedPdf> {
-  return new Promise((resolve, reject) => {
-    const items: PdfTextItem[] = [];
-    let pageCount = 0;
-    let currentPage = 0;
+  // Write buffer to temp file
+  const tmpPath = join(tmpdir(), `pfos_${Date.now()}_${filename}`);
+  await writeFile(tmpPath, buffer);
 
-    new PdfReader().parseBuffer(buffer, (err, item) => {
-      if (err) {
-        reject(err);
-      } else if (!item) {
-        resolve({
-          items,
-          text: items.map(i => i.text).join(' '),
-          pages: pageCount,
-          filename,
-        });
-      } else if (item.page) {
-        currentPage = item.page;
-        pageCount = item.page;
-      } else if (item.text && item.x !== undefined && item.y !== undefined) {
-        items.push({
-          text: item.text.trim(),
-          x:    Math.round(item.x * 10) / 10,
-          y:    Math.round(item.y * 10) / 10,
-          page: currentPage,
-        });
-      }
+  try {
+    const { stdout } = await execFileAsync('python3', [SCRIPT_PATH, tmpPath], {
+      maxBuffer: 10 * 1024 * 1024, // 10MB
     });
-  });
+
+    const items: PdfTextItem[] = JSON.parse(stdout);
+    const pages = items.length ? Math.max(...items.map(i => i.page)) : 0;
+    const text  = items.map(i => i.text).join(' ');
+
+    return { items, text, pages, filename };
+
+  } finally {
+    await unlink(tmpPath).catch(() => {}); // cleanup temp file
+  }
 }
 
 export function detectInstitution(text: string): string | null {
   const t = text.toUpperCase();
-  if (t.includes('WELLS FARGO'))                               return 'wells_fargo';
-  if (t.includes('U.S. BANK') || t.includes('US BANK'))       return 'us_bank';
-  if (t.includes('BANK OF AMERICA'))                           return 'bofa';
-  if (t.includes('CHASE'))                                     return 'chase';
-  if (t.includes('SYNCHRONY'))                                 return 'synchrony';
+  if (t.includes('WELLS FARGO'))                                return 'wells_fargo';
+  if (t.includes('U.S. BANK') || t.includes('US BANK'))        return 'us_bank';
+  if (t.includes('BANK OF AMERICA'))                            return 'bofa';
+  if (t.includes('CHASE'))                                      return 'chase';
+  if (t.includes('SYNCHRONY'))                                  return 'synchrony';
   if (t.includes('CITI') || t.includes('COSTCO ANYWHERE VISA')) return 'citi';
   return null;
 }

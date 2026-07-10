@@ -1,28 +1,13 @@
-import type { StatementPeriod } from './types';
+import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf, PdfTextItem } from '../pdf-extractor';
 
-export interface ParsedTransaction {
-  date: string;
-  rawDescription: string;
-  amountCents: number;
-  direction: 'debit' | 'credit';
-  balance?: number;
-}
-
-// Wells Fargo column X ranges (from coordinate analysis of real statements)
-// pdfreader x units differ from pdfminer — scaled by ~7.2x
-// pdfminer x=61.5  → pdfreader x≈8.5
-// pdfminer x=142.5 → pdfreader x≈19.8
-// pdfminer x=411.8 → pdfreader x≈57.2
-// pdfminer x=480.0 → pdfreader x≈66.7
-// pdfminer x=537.8 → pdfreader x≈74.7
-
+// Wells Fargo column X ranges (pdfminer coordinates from real statement analysis)
 const COL = {
-  DATE_MIN: 7.0,  DATE_MAX: 11.0,
-  DESC_MIN: 18.0, DESC_MAX: 44.0,
-  DEP_MIN:  54.0, DEP_MAX:  61.0,
-  WD_MIN:   63.0, WD_MAX:   71.0,
-  BAL_MIN:  72.0, BAL_MAX:  79.0,
+  DATE_MIN:  61.0, DATE_MAX:  62.0,
+  DESC_MIN: 140.0, DESC_MAX: 330.0,
+  DEP_MIN:  395.0, DEP_MAX:  435.0,
+  WD_MIN:   465.0, WD_MAX:   505.0,
+  BAL_MIN:  525.0, BAL_MAX:  555.0,
 };
 
 const DATE_RE   = /^\d{1,2}\/\d{1,2}$/;
@@ -30,28 +15,27 @@ const AMOUNT_RE = /^\d{1,3}(?:,\d{3})*\.\d{2}$/;
 
 function parseAmount(text: string): number | null {
   const cleaned = text.replace(/[$,]/g, '').trim();
-  if (!AMOUNT_RE.test(cleaned)) return null;
-  return Math.round(parseFloat(cleaned) * 100);
+  return AMOUNT_RE.test(cleaned) ? Math.round(parseFloat(cleaned) * 100) : null;
 }
 
 function groupByRow(items: PdfTextItem[]): PdfTextItem[][] {
   const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
   const rows: PdfTextItem[][] = [];
-  let currentRow: PdfTextItem[] = [];
+  let current: PdfTextItem[] = [];
   let currentY: number | null = null;
 
   for (const item of sorted) {
-    if (!item.text) continue;
-    if (currentY === null || Math.abs(item.y - currentY) <= 0.5) {
-      currentRow.push(item);
+    if (!item.text.trim()) continue;
+    if (currentY === null || Math.abs(item.y - currentY) <= 3) {
+      current.push(item);
       if (currentY === null) currentY = item.y;
     } else {
-      if (currentRow.length) rows.push(currentRow);
-      currentRow = [item];
+      if (current.length) rows.push(current);
+      current = [item];
       currentY = item.y;
     }
   }
-  if (currentRow.length) rows.push(currentRow);
+  if (current.length) rows.push(current);
   return rows;
 }
 
@@ -60,11 +44,7 @@ export function parseWellsFargo(
   period: StatementPeriod
 ): ParsedTransaction[] {
   const results: ParsedTransaction[] = [];
-
-  // Filter out left-margin noise (x < 7) and very wide text blocks
-  const items = pdf.items.filter(i => i.x >= 7.0);
-
-  const rows = groupByRow(items);
+  const rows = groupByRow(pdf.items);
 
   for (const row of rows) {
     const dateItems = row.filter(i => i.x >= COL.DATE_MIN && i.x <= COL.DATE_MAX);
@@ -85,7 +65,7 @@ export function parseWellsFargo(
 
     const desc = descItems
       .map(i => i.text)
-      .filter(t => !t.match(/^\$$/))  // remove stray $ signs
+      .filter(t => t !== '$')
       .join(' ')
       .trim();
 
@@ -109,13 +89,9 @@ export function parseWellsFargo(
   return results;
 }
 
-// StatementParser interface adapter
-import type { StatementParser } from './types';
-
 export const WellsFargoParser: StatementParser = {
   institution: 'wells_fargo',
-  parse(text: string, period: StatementPeriod) {
-    // text-only fallback — coordinate parsing happens in pipeline via parsePdf()
-    return [];
+  parse(_text: string, _period: StatementPeriod): ParsedTransaction[] {
+    return []; // coordinate parsing used via parseWellsFargo()
   },
 };
