@@ -1,7 +1,9 @@
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, syncUserToDatabase } from '@/lib/auth';
 import { logEvent, AUDIT_EVENTS } from '@/lib/audit';
 
 export default async function DashboardPage() {
+  // Sync Clerk user to DB on first visit — creates record if not exists
+  await syncUserToDatabase();
   const user = await requireAuth();
 
   // Log dashboard visit
