@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { importBatches } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
 import { getParser } from './parsers';
 import { loadPatterns, normalizeTransaction } from './normalizer';
@@ -64,11 +65,16 @@ export async function runImportPipeline(
     // 7. Normalize each transaction
     const normalized = parsed.map(txn => normalizeTransaction(txn, patterns));
 
-    // 8. Detect duplicates
+    // 8. Detect duplicates (pass normalized so hashes are consistent)
     const withDuplicates = await filterDuplicates(accountId, normalized);
 
-    // 9. Detect transfers
-    const withTransfers = detectTransfers(withDuplicates);
+    // 9. Detect transfers (re-attach normalized txn)
+    const withTransfers = detectTransfers(
+      withDuplicates.map(item => ({
+        ...item,
+        txn: normalizeTransaction(item.txn, patterns),
+      }))
+    );
 
     // 10. Write to staged_transactions
     const { inserted, duplicates } = await writeStagedTransactions(
@@ -91,7 +97,7 @@ export async function runImportPipeline(
     await db
       .update(importBatches)
       .set({ status: 'error', errorMessage: String(err), updatedAt: new Date() })
-      .where(({ id }) => id === batchId);
+      .where(eq(importBatches.id, batchId));
     throw err;
   }
 }
