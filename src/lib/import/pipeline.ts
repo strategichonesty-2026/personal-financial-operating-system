@@ -3,6 +3,7 @@ import { importBatches } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
 import { getParser } from './parsers';
+import { parseWellsFargo } from './parsers/wells-fargo';
 import { loadPatterns, normalizeTransaction } from './normalizer';
 import { filterDuplicates } from './duplicate-detector';
 import { detectTransfers } from './transfer-detector';
@@ -53,11 +54,11 @@ export async function runImportPipeline(
   });
 
   try {
-    // 5. Parse transactions
-    const parsed = parser.parse(extracted.text, {
-      year: statementYear,
-      month: statementMonth,
-    });
+    // 5. Parse transactions (use coordinate-aware parser for WF)
+    const period = { year: statementYear, month: statementMonth };
+    const parsed = institution === 'wells_fargo'
+      ? parseWellsFargo(extracted, period)
+      : parser.parse(extracted.text, period);
 
     // 6. Load merchant patterns
     const patterns = await loadPatterns();
