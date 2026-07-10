@@ -6,8 +6,10 @@ export * from './accounts';
 export * from './audit';
 export * from './journal-entries';
 
+// Milestone 3 schemas:
+export * from './import-batches';
+export * from './staged-transactions';
+export * from './merchant-patterns';
+
 // Future milestone schemas:
-// export * from './import-batches';      // Milestone 3
-// export * from './staged-transactions'; // Milestone 3
-// export * from './merchant-patterns';   // Milestone 5
 // export * from './user-rules';          // Milestone 5
