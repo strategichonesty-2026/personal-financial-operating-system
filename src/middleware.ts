@@ -16,6 +16,7 @@ export default clerkMiddleware(async (auth, request) => {
       return authObj.redirectToSignIn();
     }
   }
+  return;
 });
 
 export const config = {
