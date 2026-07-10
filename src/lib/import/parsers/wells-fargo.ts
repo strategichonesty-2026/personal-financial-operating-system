@@ -3,11 +3,11 @@ import type { ExtractedPdf, PdfTextItem } from '../pdf-extractor';
 
 // Wells Fargo column X ranges (pdfminer coordinates from real statement analysis)
 const COL = {
-  DATE_MIN:  61.0, DATE_MAX:  62.0,
-  DESC_MIN: 140.0, DESC_MAX: 330.0,
+  DATE_MIN:  60.0, DATE_MAX:  62.5,  // savings=60.8, checking=61.5
+  DESC_MIN:  90.0, DESC_MAX: 330.0,  // savings=94, checking=142
   DEP_MIN:  395.0, DEP_MAX:  435.0,
   WD_MIN:   465.0, WD_MAX:   505.0,
-  BAL_MIN:  525.0, BAL_MAX:  555.0,
+  BAL_MIN:  520.0, BAL_MAX:  555.0,
 };
 
 const DATE_RE   = /^\d{1,2}\/\d{1,2}$/;
