@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/v1/health',     // Health check is public
+  '/api/v1/admin/(.*)', // Admin/seed routes
   '/api/webhooks/(.*)', // Clerk webhooks are public
 ]);
 
