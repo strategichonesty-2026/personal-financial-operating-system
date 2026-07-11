@@ -187,16 +187,9 @@ export default function ImportPage() {
               </div>
             </div>
             
-              href={`/dashboard/import/${result.batchId}`}
-              style={{
-                display: 'inline-block', marginTop: '1rem',
-                background: '#2E4057', color: '#fff',
-                padding: '0.5rem 1rem', borderRadius: '6px',
-                textDecoration: 'none', fontSize: '0.9rem',
-              }}
-            >
-              Review staged transactions &rarr;
-            </a>
+              href={"/dashboard/import/" + result.batchId}
+              style={{ display: "inline-block", marginTop: "1rem", background: "#2E4057", color: "#fff", padding: "0.5rem 1rem", borderRadius: "6px", textDecoration: "none", fontSize: "0.9rem" }}
+            >{"Review staged transactions"}</a>
           </div>
         )}
 
