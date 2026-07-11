@@ -20,7 +20,7 @@ export async function extractPdfText(
   filename: string
 ): Promise<ExtractedPdf> {
   const formData = new FormData();
-  const blob = new Blob([buffer], { type: 'application/pdf' });
+  const blob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' });
   formData.append('file', blob, filename);
 
   const res = await fetch(`${EXTRACTOR_URL}/extract`, {
