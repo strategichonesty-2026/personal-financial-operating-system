@@ -30,13 +30,21 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
+    // Use provided year/month, or fall back to auto-detected from PDF
+    const year  = yearStr  ? parseInt(yearStr, 10)  : null;
+    const month = monthStr ? parseInt(monthStr, 10) : null;
+
+    if (!year || !month) {
+      return NextResponse.json({ error: 'Could not detect statement period — please select manually' }, { status: 400 });
+    }
+
     const result = await runImportPipeline(
       buffer,
       file.name,
       accountId,
       userId,
-      parseInt(yearStr, 10),
-      parseInt(monthStr, 10)
+      year,
+      month
     );
 
     return NextResponse.json({ ok: true, ...result });

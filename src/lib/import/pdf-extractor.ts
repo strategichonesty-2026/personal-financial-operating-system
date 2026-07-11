@@ -5,11 +5,19 @@ export interface PdfTextItem {
   page: number;
 }
 
+export interface PdfMeta {
+  institution: string | null;
+  accountLast4: string | null;
+  year: number | null;
+  month: number | null;
+}
+
 export interface ExtractedPdf {
   items: PdfTextItem[];
   text:  string;
   pages: number;
   filename: string;
+  meta: PdfMeta;
 }
 
 const EXTRACTOR_URL = process.env.PDF_EXTRACTOR_URL ?? 'https://web-production-e3aba.up.railway.app';
@@ -34,14 +42,14 @@ export async function extractPdfText(
     throw new Error(`Extractor error ${res.status}: ${err}`);
   }
 
-  const data = await res.json() as { ok: boolean; items: PdfTextItem[] };
+  const data = await res.json() as { ok: boolean; items: PdfTextItem[]; meta: PdfMeta };
   if (!data.ok) throw new Error('Extractor returned ok=false');
 
   const items = data.items;
   const pages = items.length ? Math.max(...items.map(i => i.page)) : 0;
   const text  = items.map(i => i.text).join(' ');
 
-  return { items, text, pages, filename };
+  return { items, text, pages, filename, meta: data.meta };
 }
 
 export function detectInstitution(text: string): string | null {
