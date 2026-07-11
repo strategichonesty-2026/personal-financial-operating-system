@@ -1,16 +1,24 @@
 import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf } from '../pdf-extractor';
 
+// US Bank column layout (from coordinate analysis):
+// x=207.3 = Description
+// x=558-568 = Amount (trailing dash = debit)
+// Skip: x=70 (REF lines), x=221 (transfer ref lines)
+
 const COL = {
   DESC_MIN: 200.0, DESC_MAX: 420.0,
   AMT_MIN:  545.0, AMT_MAX:  572.0,
 };
 
+// Summary rows to skip
 const SKIP_PATTERNS = [
   /^total/i, /^new balance/i, /^\$/,
   /^effective /i, /^u\.s\. bancorp/i, /checks on canadian/i,
   /^tracer fee/i, /^initiation fee/i, /^for foreign/i,
   /withdrawals subtotal/i, /deposits.*credits/i,
+  /average account balance/i, /consumer pricing information/i,
+  /^reserve line/i, /^ending balance/i, /^beginning balance/i,
 ];
 
 function parseAmount(text: string): { cents: number; direction: 'debit'|'credit' } | null {
@@ -23,6 +31,7 @@ function parseAmount(text: string): { cents: number; direction: 'debit'|'credit'
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
+  // Must group by page first — same y on different pages are unrelated rows
   const sorted = [...items].sort((a,b) => a.page-b.page||b.y-a.y||a.x-b.x);
   const rows: typeof items[] = [];
   let cur: typeof items = [], curY: number|null = null, curPage: number|null = null;
@@ -62,6 +71,7 @@ export function parseUSBank(pdf: ExtractedPdf, period: StatementPeriod): ParsedT
     if (!desc || desc.length < 3) continue;
     if (SKIP_PATTERNS.some(p => p.test(desc))) continue;
 
+    // Include rowIdx in key — same desc+amount can appear multiple times (e.g. Acorns $5 weekly)
     const page = row[0]?.page ?? 0;
     const key = `${page}|${rowIdx}|${desc}|${amtParsed.cents}|${amtParsed.direction}`;
     if (seen.has(key)) continue;
