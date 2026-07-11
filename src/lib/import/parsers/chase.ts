@@ -2,8 +2,8 @@ import type { StatementParser, StatementPeriod, ParsedTransaction } from './type
 import type { ExtractedPdf } from '../pdf-extractor';
 
 const COL = {
-  DESC_MIN: 110.0, DESC_MAX: 465.0,
-  AMT_MIN: 460.0, AMT_MAX: 475.0,
+  DESC_MIN: 110.0, DESC_MAX: 350.0,  // tighter desc range to avoid summary cols
+  AMT_MIN:  460.0, AMT_MAX: 475.0,
 };
 
 function parseAmount(text: string): number | null {
@@ -35,6 +35,8 @@ export function parseChase(pdf: ExtractedPdf, period: StatementPeriod): ParsedTr
     if (!descItems.length||!amtItems.length) continue;
     const desc = descItems.map(i=>i.text).join(' ').trim();
     if (desc.startsWith('Order Number')||desc.length<3) continue;
+    if (/\$[\d,]+/.test(desc)) continue;  // skip rows with embedded $ amounts
+    if (/^[\d,]+$/.test(desc.trim())) continue; // skip pure number rows
     const amtRaw = amtItems.map(i=>parseAmount(i.text)).find(v=>v!==null)??null;
     if (amtRaw===null) continue;
     results.push({ date:isoDate, rawDescription:desc, amountCents:Math.abs(amtRaw), direction:amtRaw<0?'credit':'debit' });

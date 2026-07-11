@@ -50,7 +50,8 @@ export async function extractPdfText(
 export function detectInstitution(text: string): string | null {
   const t = text.toUpperCase();
   if (t.includes('WELLS FARGO'))                                return 'wells_fargo';
-  if (t.includes('U.S. BANK') || t.includes('US BANK'))        return 'us_bank';
+  if (t.includes('U.S. BANK') || t.includes('US BANK') ||
+      t.includes('UNI-STATEMENT') || t.includes('800-US BANKS')) return 'us_bank';
   if (t.includes('BANK OF AMERICA'))                            return 'bofa';
   if (t.includes('CHASE'))                                      return 'chase';
   if (t.includes('SYNCHRONY'))                                  return 'synchrony';

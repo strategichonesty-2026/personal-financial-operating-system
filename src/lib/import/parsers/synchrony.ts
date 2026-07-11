@@ -4,7 +4,7 @@ import type { ExtractedPdf } from '../pdf-extractor';
 const COL = {
   REF_MIN: 70.0, REF_MAX: 80.0,
   DESC_MIN: 178.0, DESC_MAX: 455.0,
-  AMT_MIN: 448.0, AMT_MAX: 465.0,
+  AMT_MIN: 445.0, AMT_MAX: 470.0,
 };
 
 function parseAmount(text: string): number | null {
