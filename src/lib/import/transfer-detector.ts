@@ -30,6 +30,10 @@ export function detectTransfers(
 
       if (a.direction === b.direction) continue;
       if (a.amountCents !== b.amountCents) continue;
+      // Don't pair merchant refunds as transfers — both descriptions are merchant names
+      const aIsAmazon = /amazon|amzn/i.test(a.rawDescription);
+      const bIsAmazon = /amazon|amzn/i.test(b.rawDescription);
+      if (aIsAmazon && bIsAmazon) continue;
 
       const diffDays = Math.abs(
         new Date(a.date).getTime() - new Date(b.date).getTime()
