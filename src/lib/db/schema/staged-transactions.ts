@@ -15,6 +15,10 @@ export const stagedTransactions = pgTable('staged_transactions', {
   transferPairId:    text('transfer_pair_id'),
   duplicateHash:     text('duplicate_hash').notNull(),
   status:            text('status').notNull().default('pending'),
+  // Posting fields — set when transaction is approved and posted
+  journalEntryId:    text('journal_entry_id'),
+  reviewedAt:        timestamp('reviewed_at', { withTimezone: true }),
+  postedAt:          timestamp('posted_at', { withTimezone: true }),
   createdAt:         timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
