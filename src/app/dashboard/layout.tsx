@@ -26,7 +26,10 @@ export default function DashboardLayout({
           </span>
         </div>
         <UserButton afterSignOutUrl="/sign-in" />
-      </nav>
+        <a href="/dashboard/import" style={{ color: '#2E4057', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: '4px' }}>
+        Import
+      </a>
+    </nav>
 
       {/* Main content */}
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
