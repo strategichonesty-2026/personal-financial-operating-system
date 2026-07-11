@@ -66,6 +66,7 @@ export default function ImportPage() {
   const [result, setResult]     = useState<UploadResult | null>(null);
   const [error, setError]       = useState('');
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const [institution, setInstitution] = useState('');
 
   // Load real account UUIDs from DB on mount
   useEffect(() => {
@@ -113,6 +114,7 @@ export default function ImportPage() {
       }
       if (data.year)  setYear(data.year);
       if (data.month) setMonth(data.month);
+      if (data.institution) setInstitution(data.institution);
 
       setStage('confirm');
     } catch (err) {
@@ -130,6 +132,7 @@ export default function ImportPage() {
     formData.append('accountId', accountId);
     formData.append('year', String(year));
     formData.append('month', String(month));
+    if (institution) formData.append('institution', institution);
 
     try {
       const res = await fetch('/api/v1/import', { method: 'POST', body: formData });
@@ -145,7 +148,7 @@ export default function ImportPage() {
 
   function reset() {
     setStage('pick'); setFile(null); setDetected(null);
-    setAccountId(''); setResult(null); setError('');
+    setAccountId(''); setResult(null); setError(''); setInstitution('');
   }
 
   return (
@@ -184,6 +187,21 @@ export default function ImportPage() {
               </div>
             </div>
 
+            {!detected?.institution && (
+              <div>
+                <label style={labelStyle}>Institution</label>
+                <select value={institution} onChange={e => setInstitution(e.target.value)} style={inputStyle}>
+                  <option value="">— Select institution —</option>
+                  <option value="wells_fargo">Wells Fargo</option>
+                  <option value="us_bank">U.S. Bank</option>
+                  <option value="citi">Citi Costco Visa</option>
+                  <option value="synchrony">Synchrony Sam's Club</option>
+                  <option value="chase">Chase Amazon</option>
+                  <option value="bofa">Bank of America</option>
+                </select>
+              </div>
+            )}
+
             <div>
               <label style={labelStyle}>Confirm Account</label>
               <select value={accountId} onChange={e => setAccountId(e.target.value)} style={inputStyle}>
@@ -210,7 +228,7 @@ export default function ImportPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={handleImport} disabled={!accountId} style={{ ...btnStyle, background: accountId ? '#2E4057' : '#999', flex: 1 }}>
+              <button onClick={handleImport} disabled={!accountId || (!detected?.institution && !institution)} style={{ ...btnStyle, background: (accountId && (detected?.institution || institution)) ? '#2E4057' : '#999', flex: 1 }}>
                 Confirm and Import
               </button>
               <button onClick={reset} style={{ ...btnStyle, background: '#fff', color: '#2E4057', border: '1px solid #D0D0D0' }}>

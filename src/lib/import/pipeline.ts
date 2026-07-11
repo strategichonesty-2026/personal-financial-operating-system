@@ -28,13 +28,14 @@ export async function runImportPipeline(
   accountId: string,
   userId: string,
   statementYear: number,
-  statementMonth: number
+  statementMonth: number,
+  institutionOverride?: string | null
 ): Promise<PipelineResult> {
   // 1. Extract text from PDF
   const extracted = await extractPdfText(buffer, filename);
 
-  // 2. Detect institution
-  const institution = detectInstitution(extracted.text);
+  // 2. Detect institution (allow manual override)
+  const institution = institutionOverride ?? detectInstitution(extracted.text);
   if (!institution) {
     throw new Error('Could not detect institution from PDF. Please select manually.');
   }
