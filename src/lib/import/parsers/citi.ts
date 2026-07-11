@@ -21,9 +21,7 @@ const PAYMENT_RE = /payment|autopay|thank you/i;
 const DATE_RE = /^\d{2}\/\d{2}$/;
 
 function parseAmount(raw: string): number | null {
-  // Strip $, commas, and trailing CR (credit indicator on some Citi statements)
   let text = raw.replace(/[$,]/g, '').replace(/\s*CR$/i, '').trim();
-  // Handle negative indicated by CR suffix (already stripped above — mark negative)
   const isCrSuffix = /CR$/i.test(raw.replace(/[$,\s]/g, ''));
   if (!/^-?\d+\.\d{2}$/.test(text)) return null;
   let val = Math.round(parseFloat(text) * 100);
@@ -32,13 +30,22 @@ function parseAmount(raw: string): number | null {
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
-  const sorted = [...items].sort((a,b) => b.y-a.y||a.x-b.x);
+  // Must group by page first — same y on different pages are unrelated rows
+  const sorted = [...items].sort((a,b) => a.page-b.page||b.y-a.y||a.x-b.x);
   const rows: typeof items[] = [];
-  let cur: typeof items = [], curY: number|null = null;
+  let cur: typeof items = [], curY: number|null = null, curPage: number|null = null;
   for (const item of sorted) {
     if (!item.text.trim()) continue;
-    if (curY===null||Math.abs(item.y-curY)<=3){cur.push(item);if(curY===null)curY=item.y;}
-    else{if(cur.length)rows.push(cur);cur=[item];curY=item.y;}
+    const samePage = curPage===null||item.page===curPage;
+    const sameRow  = curY===null||Math.abs(item.y-curY)<=3;
+    if (samePage && sameRow) {
+      cur.push(item);
+      if (curY===null) curY=item.y;
+      if (curPage===null) curPage=item.page;
+    } else {
+      if (cur.length) rows.push(cur);
+      cur=[item]; curY=item.y; curPage=item.page;
+    }
   }
   if(cur.length)rows.push(cur);
   return rows;
