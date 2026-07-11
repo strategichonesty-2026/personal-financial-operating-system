@@ -94,7 +94,11 @@ export default function ReconciliationPage() {
   }
 
   async function runReconcile() {
-    setError(''); setResult(null); setLoading(true);
+    setError(''); setResult(null);
+    if (!openingBalance) { setError('Please enter the opening balance from your statement.'); return; }
+    if (!closingBalance) { setError('Please enter the closing balance from your statement.'); return; }
+    if (!txnInput.trim()) { setError('Please enter at least one statement transaction.'); return; }
+    setLoading(true);
     try {
       const txns = parseTxns();
       const res = await fetch('/api/v1/reconcile', {
@@ -172,7 +176,29 @@ export default function ReconciliationPage() {
                 style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem' }}>Closing Balance ($)</label>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                Closing Balance ($)
+                {openingBalance && closingBalance && txnInput.trim() && (() => {
+                  const credits = txnInput.trim().split('\n').filter(Boolean)
+                    .filter(l => l.split('|')[3]?.trim() === 'credit')
+                    .reduce((s, l) => s + (parseFloat(l.split('|')[2] ?? '0') || 0), 0);
+                  const debits = txnInput.trim().split('\n').filter(Boolean)
+                    .filter(l => l.split('|')[3]?.trim() === 'debit')
+                    .reduce((s, l) => s + (parseFloat(l.split('|')[2] ?? '0') || 0), 0);
+                  const calc = parseFloat(openingBalance) + credits - debits;
+                  const closing = parseFloat(closingBalance);
+                  const diff = Math.abs(calc - closing);
+                  const ok = diff < 0.01;
+                  return (
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', fontWeight: 600,
+                      color: ok ? '#22c55e' : '#ef4444',
+                      background: ok ? '#f0fdf4' : '#fef2f2',
+                      padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                      {ok ? '✅ Balances' : `❌ Off by $${diff.toFixed(2)}`}
+                    </span>
+                  );
+                })()}
+              </label>
               <input type="number" step="0.01" value={closingBalance} onChange={e => setClosingBalance(e.target.value)}
                 placeholder="1979.62"
                 style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '6px' }} />
@@ -191,10 +217,12 @@ export default function ReconciliationPage() {
 
           {error && <p style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</p>}
 
-          <button onClick={runReconcile} disabled={loading || !accountId || !openingBalance || !closingBalance}
-            style={{ background: '#1d4ed8', color: 'white', padding: '0.625rem 1.5rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+          <button onClick={runReconcile} disabled={loading || !accountId}
+            style={{ background: loading || !accountId ? '#9ca3af' : '#1d4ed8', color: 'white', padding: '0.625rem 1.5rem', borderRadius: '6px', border: 'none', cursor: loading || !accountId ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
             {loading ? 'Reconciling...' : 'Run Reconciliation'}
           </button>
+          {!openingBalance && <span style={{ color: '#ef4444', fontSize: '0.8rem', marginLeft: '1rem' }}>⚠ Enter opening balance</span>}
+          {!closingBalance && <span style={{ color: '#ef4444', fontSize: '0.8rem', marginLeft: '0.5rem' }}>⚠ Enter closing balance</span>}
         </div>
       )}
 
