@@ -13,3 +13,5 @@ export * from './merchant-patterns';
 
 // Future milestone schemas:
 // export * from './user-rules';          // Milestone 5
+export { parserAudit } from './parser-audit';
+export type { ParserAudit, NewParserAudit } from './parser-audit';

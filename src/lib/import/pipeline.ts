@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { importBatches } from '@/lib/db/schema';
+import { importBatches, parserAudit } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
 import { getParser } from './parsers';
@@ -20,6 +20,10 @@ export interface PipelineResult {
   parsed: number;
   inserted: number;
   duplicates: number;
+  // Audit fields
+  rawItemCount: number;
+  rowsGrouped: number;
+  transfersFound: number;
 }
 
 export async function runImportPipeline(
@@ -97,6 +101,30 @@ export async function runImportPipeline(
       withTransfers
     );
 
+    const transfersFound = withTransfers.filter(i => i.transferCandidate).length;
+
+    // Write immutable parser audit record
+    await db.insert(parserAudit).values({
+      batchId,
+      userId,
+      institution,
+      filename,
+      accountId:      accountId ?? null,
+      statementYear,
+      statementMonth,
+      pagesExtracted:    extracted.pages,
+      rawItemCount:      extracted.items.length,
+      rowsGrouped:       0,      // parsers don't expose this yet
+      rowsParsed:        parsed.length,
+      rowsSkippedFilter: 0,      // parsers don't expose this yet
+      rowsSkippedDedup:  duplicates,
+      normalized:        normalized.length,
+      duplicatesFound:   duplicates,
+      transfersFound,
+      inserted,
+      status:            'success',
+    });
+
     return {
       batchId,
       institution,
@@ -104,9 +132,37 @@ export async function runImportPipeline(
       parsed: parsed.length,
       inserted,
       duplicates,
+      rawItemCount:   extracted.items.length,
+      rowsGrouped:    0,
+      transfersFound,
     };
 
   } catch (err) {
+    // Write audit record for failed imports too
+    try {
+      await db.insert(parserAudit).values({
+        batchId,
+        userId,
+        institution: institution ?? 'unknown',
+        filename,
+        accountId:      accountId ?? null,
+        statementYear,
+        statementMonth,
+        pagesExtracted: 0,
+        rawItemCount:   0,
+        rowsGrouped:    0,
+        rowsParsed:     0,
+        rowsSkippedFilter: 0,
+        rowsSkippedDedup:  0,
+        normalized:     0,
+        duplicatesFound: 0,
+        transfersFound: 0,
+        inserted:       0,
+        status:         'error',
+        errorMessage:   String(err),
+      });
+    } catch { /* don't mask original error */ }
+
     // Mark batch as error
     await db
       .update(importBatches)

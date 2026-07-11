@@ -19,20 +19,26 @@ function parseAmount(text: string): number | null {
 }
 
 function groupByRow(items: PdfTextItem[]): PdfTextItem[][] {
-  const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+  // Must group by page first — same y on different pages are unrelated rows
+  const sorted = [...items].sort((a, b) => a.page - b.page || b.y - a.y || a.x - b.x);
   const rows: PdfTextItem[][] = [];
   let current: PdfTextItem[] = [];
   let currentY: number | null = null;
+  let currentPage: number | null = null;
 
   for (const item of sorted) {
     if (!item.text.trim()) continue;
-    if (currentY === null || Math.abs(item.y - currentY) <= 3) {
+    const samePage = currentPage === null || item.page === currentPage;
+    const sameRow  = currentY === null || Math.abs(item.y - currentY) <= 3;
+    if (samePage && sameRow) {
       current.push(item);
       if (currentY === null) currentY = item.y;
+      if (currentPage === null) currentPage = item.page;
     } else {
       if (current.length) rows.push(current);
       current = [item];
       currentY = item.y;
+      currentPage = item.page;
     }
   }
   if (current.length) rows.push(current);

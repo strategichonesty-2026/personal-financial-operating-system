@@ -14,13 +14,22 @@ function parseAmount(text: string): number | null {
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
-  const sorted = [...items].sort((a,b) => b.y-a.y||a.x-b.x);
+  // Must group by page first — same y on different pages are unrelated rows
+  const sorted = [...items].sort((a,b) => a.page-b.page||b.y-a.y||a.x-b.x);
   const rows: typeof items[] = [];
-  let cur: typeof items = [], curY: number|null = null;
+  let cur: typeof items = [], curY: number|null = null, curPage: number|null = null;
   for (const item of sorted) {
     if (!item.text.trim()) continue;
-    if (curY===null||Math.abs(item.y-curY)<=3){cur.push(item);if(curY===null)curY=item.y;}
-    else{if(cur.length)rows.push(cur);cur=[item];curY=item.y;}
+    const samePage = curPage===null||item.page===curPage;
+    const sameRow  = curY===null||Math.abs(item.y-curY)<=3;
+    if (samePage && sameRow) {
+      cur.push(item);
+      if (curY===null) curY=item.y;
+      if (curPage===null) curPage=item.page;
+    } else {
+      if (cur.length) rows.push(cur);
+      cur=[item]; curY=item.y; curPage=item.page;
+    }
   }
   if(cur.length)rows.push(cur);
   return rows;
