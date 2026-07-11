@@ -1,14 +1,25 @@
 import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf } from '../pdf-extractor';
 
+// Chase Amazon column layout:
+// x=111.6 = Description
+// x=112.5 = Order Number sub-line (skip)
+// x=466-470 = Amount
+// Two sections in PDF:
+//   Payments/Credits section: amounts are negative (e.g. -150.00)
+//   Purchases section: amounts are positive (e.g. 8.64)
+// We parse BOTH but track direction from sign
+
 const COL = {
-  DESC_MIN: 110.0, DESC_MAX: 350.0,  // tighter desc range to avoid summary cols
-  AMT_MIN:  460.0, AMT_MAX: 475.0,
+  DESC_MIN: 110.0, DESC_MAX: 350.0,
+  AMT_MIN:  460.0, AMT_MAX:  475.0,
 };
+
+const AMOUNT_RE = /^-?\d{1,3}(?:,\d{3})*\.\d{2}$/;
 
 function parseAmount(text: string): number | null {
   const cleaned = text.replace(/[$,]/g, '').trim();
-  if (!/^-?\d+\.\d{2}$/.test(cleaned)) return null;
+  if (!AMOUNT_RE.test(cleaned)) return null;
   return Math.round(parseFloat(cleaned) * 100);
 }
 
@@ -29,17 +40,35 @@ export function parseChase(pdf: ExtractedPdf, period: StatementPeriod): ParsedTr
   const results: ParsedTransaction[] = [];
   const rows = groupByRow(pdf.items);
   const isoDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
+
+  // Track seen amounts to deduplicate (same txn appears in 2 sections)
+  const seen = new Set<string>();
+
   for (const row of rows) {
     const descItems = row.filter(i => i.x>=COL.DESC_MIN&&i.x<=COL.DESC_MAX);
     const amtItems  = row.filter(i => i.x>=COL.AMT_MIN &&i.x<=COL.AMT_MAX);
     if (!descItems.length||!amtItems.length) continue;
+
     const desc = descItems.map(i=>i.text).join(' ').trim();
     if (desc.startsWith('Order Number')||desc.length<3) continue;
-    if (/\$[\d,]+/.test(desc)) continue;  // skip rows with embedded $ amounts
-    if (/^[\d,]+$/.test(desc.trim())) continue; // skip pure number rows
+    if (/\$[\d,]+/.test(desc)) continue;
+    if (/^[\d,\.]+$/.test(desc.trim())) continue;
+
     const amtRaw = amtItems.map(i=>parseAmount(i.text)).find(v=>v!==null)??null;
     if (amtRaw===null) continue;
-    results.push({ date:isoDate, rawDescription:desc, amountCents:Math.abs(amtRaw), direction:amtRaw<0?'credit':'debit' });
+
+    // Deduplicate: same description + same absolute amount = same transaction
+    const key = `${desc}|${Math.abs(amtRaw)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const isCredit = amtRaw < 0;
+    results.push({
+      date:           isoDate,
+      rawDescription: desc,
+      amountCents:    Math.abs(amtRaw),
+      direction:      isCredit ? 'credit' : 'debit',
+    });
   }
   return results;
 }
