@@ -195,7 +195,7 @@ export default function ImportPage() {
                 textDecoration: 'none', fontSize: '0.9rem',
               }}
             >
-              Review staged transactions →
+              Review staged transactions &rarr;
             </a>
           </div>
         )}
