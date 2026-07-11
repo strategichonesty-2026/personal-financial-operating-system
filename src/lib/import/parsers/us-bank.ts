@@ -1,17 +1,30 @@
 import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf } from '../pdf-extractor';
 
+// US Bank column layout (from coordinate analysis):
+// x=207.3 = Description
+// x=558-568 = Amount (trailing dash = debit)
+// Skip: x=70 (REF lines), x=221 (transfer ref lines)
+
 const COL = {
-  DESC_MIN: 55.0, DESC_MAX: 210.0,
-  SUBDESC_MIN: 205.0, SUBDESC_MAX: 410.0,
-  AMT_MIN: 540.0, AMT_MAX: 565.0,
+  DESC_MIN: 200.0, DESC_MAX: 420.0,
+  AMT_MIN:  545.0, AMT_MAX:  572.0,
 };
+
+// Summary rows to skip
+const SKIP_PATTERNS = [
+  /^total/i, /^new balance/i, /^\$/, /^from account/i,
+  /^effective /i, /^u\.s\. bancorp/i, /checks on canadian/i,
+  /^tracer fee/i, /^initiation fee/i, /^for foreign/i,
+];
 
 function parseAmount(text: string): { cents: number; direction: 'debit'|'credit' } | null {
   const isDebit = text.trim().endsWith('-');
-  const cleaned = text.replace(/[,$\-]/g, '').trim();
+  const cleaned = text.replace(/[,$\- ]/g, '').trim();
   if (!/^\d+\.\d{2}$/.test(cleaned)) return null;
-  return { cents: Math.round(parseFloat(cleaned)*100), direction: isDebit?'debit':'credit' };
+  const cents = Math.round(parseFloat(cleaned) * 100);
+  if (cents === 0) return null;
+  return { cents, direction: isDebit ? 'debit' : 'credit' };
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
@@ -29,27 +42,33 @@ function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
 
 export function parseUSBank(pdf: ExtractedPdf, period: StatementPeriod): ParsedTransaction[] {
   const results: ParsedTransaction[] = [];
+  const seen = new Set<string>();
   const rows = groupByRow(pdf.items);
   const fallbackDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const descItems    = row.filter(i => i.x>=COL.DESC_MIN    &&i.x<=COL.DESC_MAX);
-    const subdescItems = row.filter(i => i.x>=COL.SUBDESC_MIN &&i.x<=COL.SUBDESC_MAX);
-    const amtItems     = row.filter(i => i.x>=COL.AMT_MIN     &&i.x<=COL.AMT_MAX);
-    if (!amtItems.length) continue;
+  for (const row of rows) {
+    const descItems = row.filter(i => i.x>=COL.DESC_MIN && i.x<=COL.DESC_MAX);
+    const amtItems  = row.filter(i => i.x>=COL.AMT_MIN  && i.x<=COL.AMT_MAX);
+
+    if (!amtItems.length || !descItems.length) continue;
     const amtParsed = amtItems.map(i=>parseAmount(i.text)).find(v=>v!==null)??null;
     if (!amtParsed) continue;
-    const desc = [...descItems,...subdescItems].map(i=>i.text).join(' ').trim();
-    if (!desc||desc.length<3) continue;
-    let isoDate = fallbackDate;
-    for (let j=i+1; j<=i+2&&j<rows.length; j++) {
-      for (const item of rows[j]!) {
-        const m = item.text.match(/On (\d{2})\/(\d{2})\/(\d{2})/);
-        if (m) { isoDate=`20${m[3]}-${m[1]}-${m[2]}`; break; }
-      }
-    }
-    results.push({ date:isoDate, rawDescription:desc, amountCents:amtParsed.cents, direction:amtParsed.direction });
+
+    const desc = descItems.map(i=>i.text).join(' ').trim();
+    if (!desc || desc.length < 3) continue;
+    if (SKIP_PATTERNS.some(p => p.test(desc))) continue;
+
+    // Deduplicate
+    const key = `${desc}|${amtParsed.cents}|${amtParsed.direction}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    results.push({
+      date:           fallbackDate,
+      rawDescription: desc,
+      amountCents:    amtParsed.cents,
+      direction:      amtParsed.direction,
+    });
   }
   return results;
 }
