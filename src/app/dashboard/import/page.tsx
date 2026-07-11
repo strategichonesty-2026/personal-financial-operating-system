@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const INSTITUTION_LABELS: Record<string, string> = {
   wells_fargo: 'Wells Fargo',
@@ -13,19 +13,28 @@ const INSTITUTION_LABELS: Record<string, string> = {
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-const ACCOUNTS = [
-  { id: 'wf-4184',   label: 'Wells Fargo Checking ****4184',      last4: '4184', inst: 'wells_fargo' },
-  { id: 'wf-8029',   label: 'Wells Fargo Way2Save ****8029',       last4: '8029', inst: 'wells_fargo' },
-  { id: 'wf-team',   label: 'Wells Fargo Team Member Checking',    last4: null,   inst: 'wells_fargo' },
-  { id: 'usb-6820',  label: 'U.S. Bank Gold Checking ****6820',    last4: '6820', inst: 'us_bank' },
-  { id: 'usb-1353',  label: 'U.S. Bank Smartly Joint ****1353',    last4: '1353', inst: 'us_bank' },
-  { id: 'bofa-1961', label: 'BofA Checking ****1961',              last4: '1961', inst: 'bofa' },
-  { id: 'bofa-6951', label: 'BofA Savings ****6951',               last4: '6951', inst: 'bofa' },
-  { id: 'chase-2877',label: 'Chase Amazon Visa ****2877',          last4: '2877', inst: 'chase' },
-  { id: 'sync-1629', label: "Synchrony Sam's Club ****1629",       last4: '1629', inst: 'synchrony' },
-  { id: 'citi-4621', label: 'Citi Costco Visa ****4621',           last4: '4621', inst: 'citi' },
-  { id: 'bofa-9292', label: 'BofA Visa ****9292',                  last4: '9292', inst: 'bofa' },
-];
+interface AccountOption {
+  id: string;
+  label: string;
+  last4: string | null;
+  inst: string | null;
+}
+
+function instKeyFromDb(institution: string | null): string | null {
+  if (!institution) return null;
+  const s = institution.toLowerCase();
+  if (s.includes('wells fargo'))  return 'wells_fargo';
+  if (s.includes('u.s. bank') || s.includes('us bank')) return 'us_bank';
+  if (s.includes('citi'))         return 'citi';
+  if (s.includes('synchrony'))    return 'synchrony';
+  if (s.includes('chase'))        return 'chase';
+  if (s.includes('bank of america') || s.includes('bofa')) return 'bofa';
+  return null;
+}
+
+function accountLabel(name: string, accountRef: string | null): string {
+  return accountRef ? `${name} ****${accountRef}` : name;
+}
 
 interface Detected {
   filename: string;
@@ -56,6 +65,28 @@ export default function ImportPage() {
   const [month, setMonth]       = useState<number>(new Date().getMonth() + 1);
   const [result, setResult]     = useState<UploadResult | null>(null);
   const [error, setError]       = useState('');
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
+
+  // Load real account UUIDs from DB on mount
+  useEffect(() => {
+    fetch('/api/v1/accounts')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.data?.accounts) return;
+        const opts: AccountOption[] = (data.data.accounts as Array<{
+          id: string; name: string; accountRef: string | null; institution: string | null; type: string;
+        }>)
+          .filter(a => a.type === 'asset' || a.type === 'liability')
+          .map(a => ({
+            id:    a.id,
+            label: accountLabel(a.name, a.accountRef),
+            last4: a.accountRef,
+            inst:  instKeyFromDb(a.institution),
+          }));
+        setAccounts(opts);
+      })
+      .catch(() => { /* silently ignore — user can still pick manually */ });
+  }, []);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -77,7 +108,7 @@ export default function ImportPage() {
 
       // Auto-select account if last4 matches
       if (data.accountLast4) {
-        const match = ACCOUNTS.find(a => a.last4 === data.accountLast4 && a.inst === data.institution);
+        const match = accounts.find(a => a.last4 === data.accountLast4 && a.inst === data.institution);
         if (match) setAccountId(match.id);
       }
       if (data.year)  setYear(data.year);
@@ -157,7 +188,9 @@ export default function ImportPage() {
               <label style={labelStyle}>Confirm Account</label>
               <select value={accountId} onChange={e => setAccountId(e.target.value)} style={inputStyle}>
                 <option value="">— Select account —</option>
-                {ACCOUNTS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                {accounts.length === 0
+                  ? <option disabled>Loading accounts…</option>
+                  : accounts.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
               </select>
             </div>
 

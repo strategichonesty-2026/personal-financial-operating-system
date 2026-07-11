@@ -1,18 +1,34 @@
 import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf } from '../pdf-extractor';
 
+// Citi Costco Visa column X ranges (confirmed from real PDF coordinate dump)
+// Sale date col:  x=63-66   (purchase transactions)
+// Post date col:  x=93-97   (payment rows use POST date only, no sale date)
+// Description:    x=129-300
+// Amount:         x=350-365 (confirmed: -$100.00 at 355.7, -$60.00 at 358.3)
+// Sidebar legal:  x=316.8+ right column — excluded by DESC_MAX=300
+// Multi-line account summary blocks (x=70, text contains newlines) — skipped by DATE_RE
 const COL = {
-  SALE_MIN: 62.0, SALE_MAX: 65.0,
-  DESC_MIN: 124.0, DESC_MAX: 360.0,
-  AMT_MIN:  350.0, AMT_MAX:  480.0,
+  SALE_MIN:  62.0, SALE_MAX:  66.0,
+  POST_MIN:  90.0, POST_MAX:  97.0,   // payment rows only have post date
+  DESC_MIN: 124.0, DESC_MAX: 300.0,
+  AMT_MIN:  330.0, AMT_MAX:  370.0,   // confirmed: amounts at x=355-358
 };
+
+// Payment keywords — Citi shows these as description on payment rows
+const PAYMENT_RE = /payment|autopay|thank you/i;
 
 const DATE_RE = /^\d{2}\/\d{2}$/;
 
-function parseAmount(text: string): number | null {
-  const cleaned = text.replace(/[$,]/g, '').trim();
-  if (!/^-?\d+\.\d{2}$/.test(cleaned)) return null;
-  return Math.round(parseFloat(cleaned) * 100);
+function parseAmount(raw: string): number | null {
+  // Strip $, commas, and trailing CR (credit indicator on some Citi statements)
+  let text = raw.replace(/[$,]/g, '').replace(/\s*CR$/i, '').trim();
+  // Handle negative indicated by CR suffix (already stripped above — mark negative)
+  const isCrSuffix = /CR$/i.test(raw.replace(/[$,\s]/g, ''));
+  if (!/^-?\d+\.\d{2}$/.test(text)) return null;
+  let val = Math.round(parseFloat(text) * 100);
+  if (isCrSuffix && val > 0) val = -val;
+  return val;
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
@@ -33,10 +49,14 @@ export function parseCiti(pdf: ExtractedPdf, period: StatementPeriod): ParsedTra
   const rows = groupByRow(pdf.items);
   for (const row of rows) {
     const saleItems = row.filter(i => i.x>=COL.SALE_MIN&&i.x<=COL.SALE_MAX);
+    const postItems = row.filter(i => i.x>=COL.POST_MIN&&i.x<=COL.POST_MAX);
     const descItems = row.filter(i => i.x>=COL.DESC_MIN&&i.x<=COL.DESC_MAX);
     const amtItems  = row.filter(i => i.x>=COL.AMT_MIN &&i.x<=COL.AMT_MAX);
-    if (!saleItems.length) continue;
-    const dateText = saleItems[0]?.text??'';
+
+    // Accept sale date (purchases) OR post date (payments — no sale date col)
+    const dateItem = saleItems[0] ?? postItems[0];
+    if (!dateItem) continue;
+    const dateText = dateItem.text ?? '';
     if (!DATE_RE.test(dateText)) continue;
     const amtRaw = amtItems.map(i=>parseAmount(i.text)).find(v=>v!==null)??null;
     if (amtRaw===null) continue;
@@ -47,7 +67,9 @@ export function parseCiti(pdf: ExtractedPdf, period: StatementPeriod): ParsedTra
     if (!month||!day) continue;
     const year = month>period.month?period.year-1:period.year;
     const isoDate = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    results.push({ date:isoDate, rawDescription:desc, amountCents:Math.abs(amtRaw), direction:amtRaw<0?'credit':'debit' });
+    const isPayment = PAYMENT_RE.test(desc);
+    const direction = (amtRaw < 0 || isPayment) ? 'credit' : 'debit';
+    results.push({ date:isoDate, rawDescription:desc, amountCents:Math.abs(amtRaw), direction });
   }
   return results;
 }

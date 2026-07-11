@@ -1,3 +1,25 @@
+const CATEGORY_LABELS: Record<string, string> = {
+  '4011': 'Payroll',
+  '4021': 'Rental Income',
+  '1041': 'Investment',
+  '5011': 'Mortgage',
+  '5021': 'Groceries & Household',
+  '5031': 'Gas & Fuel',
+  '5041': 'Utilities',
+  '5061': 'Shopping (Online)',
+  '5071': 'Subscriptions & Streaming',
+  '5081': 'Phone',
+  '5082': 'Internet',
+  '5091': 'Auto Insurance',
+  '5101': 'Auto Loan',
+  '6021': 'Software & Tools',
+};
+
+function categoryLabel(code: string | null): string {
+  if (!code) return 'Uncategorized';
+  return CATEGORY_LABELS[code] ?? code;
+}
+
 import { requireAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { importBatches, stagedTransactions } from '@/lib/db/schema';
@@ -84,7 +106,7 @@ export default async function BatchReviewPage({ params }: { params: { batchId: s
                 </td>
                 <td style={td}>
                   <span style={{ fontSize: '0.8rem', color: t.categoryCode ? '#2E4057' : '#BBB' }}>
-                    {t.categoryCode ?? 'Uncategorized'}
+                    {categoryLabel(t.categoryCode)}
                   </span>
                 </td>
                 <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: t.direction === 'credit' ? '#2E7D32' : '#C62828' }}>
