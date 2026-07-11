@@ -1,17 +1,11 @@
 import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf } from '../pdf-extractor';
 
-// US Bank column layout (from coordinate analysis):
-// x=207.3 = Description
-// x=558-568 = Amount (trailing dash = debit)
-// Skip: x=70 (REF lines), x=221 (transfer ref lines)
-
 const COL = {
   DESC_MIN: 200.0, DESC_MAX: 420.0,
   AMT_MIN:  545.0, AMT_MAX:  572.0,
 };
 
-// Summary rows to skip
 const SKIP_PATTERNS = [
   /^total/i, /^new balance/i, /^\$/,
   /^effective /i, /^u\.s\. bancorp/i, /checks on canadian/i,
@@ -29,13 +23,21 @@ function parseAmount(text: string): { cents: number; direction: 'debit'|'credit'
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
-  const sorted = [...items].sort((a,b) => b.y-a.y||a.x-b.x);
+  const sorted = [...items].sort((a,b) => a.page-b.page||b.y-a.y||a.x-b.x);
   const rows: typeof items[] = [];
-  let cur: typeof items = [], curY: number|null = null;
+  let cur: typeof items = [], curY: number|null = null, curPage: number|null = null;
   for (const item of sorted) {
     if (!item.text.trim()) continue;
-    if (curY===null||Math.abs(item.y-curY)<=3){cur.push(item);if(curY===null)curY=item.y;}
-    else{if(cur.length)rows.push(cur);cur=[item];curY=item.y;}
+    const samePage = curPage===null||item.page===curPage;
+    const sameRow  = curY===null||Math.abs(item.y-curY)<=3;
+    if (samePage && sameRow) {
+      cur.push(item);
+      if (curY===null) curY=item.y;
+      if (curPage===null) curPage=item.page;
+    } else {
+      if (cur.length) rows.push(cur);
+      cur=[item]; curY=item.y; curPage=item.page;
+    }
   }
   if(cur.length)rows.push(cur);
   return rows;
@@ -47,7 +49,8 @@ export function parseUSBank(pdf: ExtractedPdf, period: StatementPeriod): ParsedT
   const rows = groupByRow(pdf.items);
   const fallbackDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
 
-  for (const row of rows) {
+  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+    const row = rows[rowIdx]!;
     const descItems = row.filter(i => i.x>=COL.DESC_MIN && i.x<=COL.DESC_MAX);
     const amtItems  = row.filter(i => i.x>=COL.AMT_MIN  && i.x<=COL.AMT_MAX);
 
@@ -59,8 +62,8 @@ export function parseUSBank(pdf: ExtractedPdf, period: StatementPeriod): ParsedT
     if (!desc || desc.length < 3) continue;
     if (SKIP_PATTERNS.some(p => p.test(desc))) continue;
 
-    // Deduplicate
-    const key = `${desc}|${amtParsed.cents}|${amtParsed.direction}`;
+    const page = row[0]?.page ?? 0;
+    const key = `${page}|${rowIdx}|${desc}|${amtParsed.cents}|${amtParsed.direction}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
