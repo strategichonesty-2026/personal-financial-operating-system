@@ -13,9 +13,10 @@ const COL = {
 
 // Summary rows to skip
 const SKIP_PATTERNS = [
-  /^total/i, /^new balance/i, /^\$/, /^from account/i,
+  /^total/i, /^new balance/i, /^\$/,
   /^effective /i, /^u\.s\. bancorp/i, /checks on canadian/i,
   /^tracer fee/i, /^initiation fee/i, /^for foreign/i,
+  /withdrawals subtotal/i, /deposits.*credits/i,
 ];
 
 function parseAmount(text: string): { cents: number; direction: 'debit'|'credit' } | null {
