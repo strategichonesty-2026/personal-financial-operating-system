@@ -33,8 +33,8 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
       const bm = t.match(/beginning balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i);
       const em = t.match(/ending balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i);
       return {
-        openingBalanceCents: bm ? Math.round(parseFloat(bm[1].replace(/,/g,'')) * 100) : null,
-        closingBalanceCents: em ? Math.round(parseFloat(em[1].replace(/,/g,'')) * 100) : null,
+        openingBalanceCents: bm?.[1] ? Math.round(parseFloat(bm[1].replace(/,/g,'')) * 100) : null,
+        closingBalanceCents: em?.[1] ? Math.round(parseFloat(em[1].replace(/,/g,'')) * 100) : null,
       };
     }
     case 'us_bank':
