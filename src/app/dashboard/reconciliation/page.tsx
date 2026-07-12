@@ -60,7 +60,7 @@ function ReconciliationPage() {
   }, [batchId]);
 
   if (view === 'detail' || batchId) {
-    return <DetailView batchId={batchId!} accounts={accounts} onBack={() => { router.push('/dashboard/reconciliation'); setView('list'); }} />;
+    return <DetailView batchId={batchId!} onBack={() => { router.push('/dashboard/reconciliation'); setView('list'); }} />;
   }
 
   const grouped = batches.reduce((acc, b) => {
@@ -133,9 +133,10 @@ function ReconciliationPage() {
   );
 }
 
-function DetailView({ batchId, accounts, onBack }: { batchId: string; accounts: Account[]; onBack: () => void }) {
+function DetailView({ batchId, onBack }: { batchId: string; onBack: () => void }) {
   const searchParams = useSearchParams();
-  const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountId, setAccountId] = useState('');
   const [periodStart, setPeriodStart] = useState(searchParams.get('periodStart') ?? '');
   const [periodEnd, setPeriodEnd] = useState(searchParams.get('periodEnd') ?? '');
   const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
@@ -149,9 +150,14 @@ function DetailView({ batchId, accounts, onBack }: { batchId: string; accounts: 
 
 
   useEffect(() => {
-    const id = searchParams.get('accountId') ?? '';
-    if (id && accounts.length > 0) setAccountId(id);
-  }, [accounts]);
+    fetch('/api/v1/accounts').then(r => r.json()).then(d => {
+      if (d.data?.accounts) {
+        setAccounts((d.data.accounts as Array<{id:string;code:string;name:string;type:string}>).filter(a => a.type==='asset'||a.type==='liability'));
+        const id = searchParams.get('accountId') ?? '';
+        if (id) setAccountId(id);
+      }
+    }).catch(()=>{});
+  }, []);
   useEffect(() => {
     if (!batchId) return;
     setLoadingTxns(true);
