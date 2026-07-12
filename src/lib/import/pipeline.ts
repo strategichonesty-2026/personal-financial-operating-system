@@ -103,6 +103,15 @@ export async function runImportPipeline(
       status: 'success',
     });
 
+    // Save balances and period to import_batches
+    await db.update(importBatches).set({
+      openingBalanceCents: balances.openingBalanceCents ?? undefined,
+      closingBalanceCents: balances.closingBalanceCents ?? undefined,
+      periodStart: periodStart ?? undefined,
+      periodEnd:   periodEnd   ?? undefined,
+      status: 'done',
+    }).where(eq(importBatches.id, batchId));
+
     return {
       batchId, institution,
       pages: extracted.pages,

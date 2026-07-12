@@ -23,6 +23,10 @@ export async function GET() {
       id: b.id, filename: b.filename, institution: b.institution,
       accountId: b.accountId, status: b.status, createdAt: b.createdAt,
       txnCount: Number(txnCount[0]?.count ?? 0),
+      openingBalanceCents: b.openingBalanceCents,
+      closingBalanceCents: b.closingBalanceCents,
+      periodStart: b.periodStart,
+      periodEnd: b.periodEnd,
       reconciliation: recon[0] ?? null,
     };
   }));

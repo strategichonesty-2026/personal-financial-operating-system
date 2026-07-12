@@ -9,7 +9,11 @@ export const importBatches = pgTable('import_batches', {
   r2Key:        text('r2_key').notNull(),
   status:       text('status').notNull().default('pending'),
   rowCount:     integer('row_count'),
-  errorMessage: text('error_message'),
+  errorMessage:       text('error_message'),
+  openingBalanceCents: integer('opening_balance_cents'),
+  closingBalanceCents: integer('closing_balance_cents'),
+  periodStart:        text('period_start'),
+  periodEnd:          text('period_end'),
   createdAt:    timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt:    timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
