@@ -60,7 +60,7 @@ function ReconciliationPage() {
   }, [batchId]);
 
   if (view === 'detail' || batchId) {
-    const sp = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const sp = searchParams;
     return <DetailView
       batchId={batchId!}
       initialAccountId={sp.get('accountId') ?? ''}
