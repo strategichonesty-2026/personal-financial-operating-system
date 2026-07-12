@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 interface BatchMeta {
   id: string; filename: string; institution: string; accountId: string;
   status: string; createdAt: string; txnCount: number;
+  openingBalanceCents: number | null; closingBalanceCents: number | null;
+  periodStart: string | null; periodEnd: string | null;
   reconciliation: { status: string; differenceCents: number; confidenceScore: number; createdAt: string } | null;
 }
 
@@ -117,7 +119,7 @@ function ReconciliationPage() {
                   </div>
                   <div>{statusBadge(batch)}</div>
                   <button
-                    onClick={() => router.push(`/dashboard/reconciliation?batchId=${batch.id}&accountId=${batch.accountId}`)}
+                    onClick={() => { const p = new URLSearchParams({ batchId: batch.id, accountId: batch.accountId ?? '' }); if (batch.periodStart) p.set('periodStart', batch.periodStart); if (batch.periodEnd) p.set('periodEnd', batch.periodEnd); if (batch.openingBalanceCents != null) p.set('opening', String(batch.openingBalanceCents / 100)); if (batch.closingBalanceCents != null) p.set('closing', String(batch.closingBalanceCents / 100)); router.push('/dashboard/reconciliation?' + p.toString()); }}
                     style={{ background: '#1d4ed8', color: 'white', border: 'none', borderRadius: '6px', padding: '0.4rem 0.875rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {batch.reconciliation ? 'Re-reconcile' : 'Reconcile →'}
                   </button>
