@@ -20,6 +20,7 @@ const ACCOUNT_IDS: Record<string, string> = {
   '2012': 'c653eb83-ca2d-49e7-9a73-4c9934bb2b73',
   '2013': '8ad3001a-486d-498a-ab5c-c1582915025f',
   '2014': '8bbe8b88-e09b-411f-9dd8-0d23970726da',
+  '2015': '0b1b5aeb-7442-4cb8-9df5-b32ded9a5c33',
   '2023': '0954bdd3-7e01-46cb-a7f6-e42ea097962f',
   '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
@@ -104,6 +105,11 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /pmt to jay lamsal/i,           debitCode: '6103', creditCode: '1011' },
   { pattern: /zelle to shrestha nepali/i,    debitCode: '6103', creditCode: '1011' },
   { pattern: /wfcu direct db/i,              debitCode: '6091', creditCode: '1011' },
+  // SYNCHRONY / SAM'S CLUB
+  { pattern: /online payment thank you/i,    isCCPayment: true, liabilityCode: '2015' },
+  { pattern: /sam's club \d+/i,             debitCode: '6081', creditCode: '2015' },
+  { pattern: /google.*google one/i,          debitCode: '6035', creditCode: '2015' },
+  { pattern: /interest charge/i,             debitCode: '5081', creditCode: '2015' },
   // CC PAYMENTS
   { pattern: /chase credit crd epay/i,       isCCPayment: true, liabilityCode: '2012' },
   { pattern: /citi card online payment/i,    isCCPayment: true, liabilityCode: '2013' },

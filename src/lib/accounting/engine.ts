@@ -75,6 +75,33 @@ export async function createJournalEntry(
     );
   }
 
+  // ── Dedup guard: skip if identical entry already exists ──────────────────
+  const totalDebitAmount = input.lines
+    .filter(l => l.side === 'debit')
+    .reduce((sum, l) => sum + l.amountCents, 0);
+
+  const existing = await db
+    .select({ id: schema.journalEntries.id })
+    .from(schema.journalEntries)
+    .innerJoin(
+      schema.journalEntryLines,
+      eq(schema.journalEntryLines.journalEntryId, schema.journalEntries.id)
+    )
+    .where(
+      and(
+        eq(schema.journalEntries.entryDate, input.entryDate),
+        eq(schema.journalEntries.description, input.description),
+        eq(schema.journalEntryLines.amountCents, totalDebitAmount),
+        eq(schema.journalEntryLines.side, 'debit')
+      )
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    console.log(`[DEDUP] Skipping duplicate: "${input.description}" ${input.entryDate.toISOString().slice(0,10)} $${totalDebitAmount/100}`);
+    return existing[0].id;
+  }
+
   // Insert journal entry + lines in a transaction
   const entryId = crypto.randomUUID();
 

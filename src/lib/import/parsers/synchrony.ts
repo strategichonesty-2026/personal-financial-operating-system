@@ -2,9 +2,9 @@ import type { StatementParser, StatementPeriod, ParsedTransaction } from './type
 import type { ExtractedPdf } from '../pdf-extractor';
 
 const COL = {
-  REF_MIN: 70.0, REF_MAX: 80.0,
-  DESC_MIN: 178.0, DESC_MAX: 455.0,
-  AMT_MIN: 445.0, AMT_MAX: 470.0,
+  REF_MIN:  68.0, REF_MAX:  80.0,
+  DESC_MIN: 178.0, DESC_MAX: 445.0,
+  AMT_MIN:  445.0, AMT_MAX:  470.0,
 };
 
 function parseAmount(text: string): number | null {
@@ -35,23 +35,96 @@ function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
   return rows;
 }
 
+// Synchrony PDFs pack multiple refs/descs/amts into single text blocks at the same x.
+// Strategy: split each block by newline, then zip ref lines with desc lines and amt lines.
 export function parseSynchrony(pdf: ExtractedPdf, period: StatementPeriod): ParsedTransaction[] {
   const results: ParsedTransaction[] = [];
-  const rows = groupByRow(pdf.items);
-  const isoDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
-  for (const row of rows) {
-    const refItems  = row.filter(i => i.x>=COL.REF_MIN &&i.x<=COL.REF_MAX);
-    const descItems = row.filter(i => i.x>=COL.DESC_MIN&&i.x<=COL.DESC_MAX);
-    const amtItems  = row.filter(i => i.x>=COL.AMT_MIN &&i.x<=COL.AMT_MAX);
-    if (!refItems.length) continue;
-    const ref = refItems[0]?.text??'';
-    if (!/^[A-Z0-9]{10,}$/.test(ref)) continue;
-    const amtRaw = amtItems.map(i=>parseAmount(i.text)).find(v=>v!==null)??null;
-    if (amtRaw===null) continue;
-    const desc = descItems.map(i=>i.text).filter(t=>!t.startsWith(',')).join(' ').trim();
-    if (!desc) continue;
-    results.push({ date:isoDate, rawDescription:desc, amountCents:Math.abs(amtRaw), direction:amtRaw<0?'credit':'debit' });
+  const seen = new Set<string>();
+  const fallbackDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
+
+  // Only process pages that have transaction data (skip cover/legal pages)
+  const txnPages = [...new Set(pdf.items.map(i => i.page))].filter(p => {
+    const pageItems = pdf.items.filter(i => i.page === p);
+    return pageItems.some(i => i.x >= COL.REF_MIN && i.x <= COL.REF_MAX &&
+      /^[A-Z0-9]{10,}/.test(i.text.trim().split('\n')[0]));
+  });
+
+  for (const page of txnPages) {
+    const pageItems = pdf.items.filter(i => i.page === page);
+
+    // Get all ref blocks on this page, split by newline
+    const refBlocks = pageItems
+      .filter(i => i.x >= COL.REF_MIN && i.x <= COL.REF_MAX)
+      .sort((a, b) => b.y - a.y);
+
+    // Get all desc blocks, split by newline
+    const descBlocks = pageItems
+      .filter(i => i.x >= COL.DESC_MIN && i.x <= COL.DESC_MAX)
+      .sort((a, b) => b.y - a.y);
+
+    // Get all amount blocks, split by newline
+    const amtBlocks = pageItems
+      .filter(i => i.x >= COL.AMT_MIN && i.x <= COL.AMT_MAX)
+      .sort((a, b) => b.y - a.y);
+
+    // Expand multi-line blocks into individual ref entries with their y positions
+    const refs: { ref: string; y: number }[] = [];
+    for (const block of refBlocks) {
+      const lines = block.text.trim().split('\n').map(l => l.trim()).filter(l => /^[A-Z0-9]{10,}$/.test(l));
+      const lineHeight = lines.length > 1 ? 10 : 0;
+      lines.forEach((ref, idx) => refs.push({ ref, y: block.y - idx * lineHeight }));
+    }
+
+    // Expand desc blocks — skip continuation lines starting with ','
+    const descs: { text: string; y: number }[] = [];
+    for (const block of descBlocks) {
+      const lines = block.text.trim().split('\n').map(l => l.trim());
+      const mainLines = lines.filter(l => !l.startsWith(',') && l.length > 0);
+      const lineHeight = 10;
+      mainLines.forEach((text, idx) => descs.push({ text, y: block.y - idx * lineHeight }));
+    }
+
+    // Expand amount blocks
+    const amts: { cents: number; y: number }[] = [];
+    for (const block of amtBlocks) {
+      const lines = block.text.trim().split('\n').map(l => l.trim());
+      const lineHeight = 10;
+      lines.forEach((line, idx) => {
+        const parsed = parseAmount(line);
+        if (parsed !== null) amts.push({ cents: parsed, y: block.y - idx * lineHeight });
+      });
+    }
+
+    // Match refs to nearest desc and amt by y proximity
+    for (const ref of refs) {
+      if (!/^[A-Z0-9]{10,}$/.test(ref.ref)) continue;
+
+      const nearestDesc = descs.reduce((best, d) =>
+        Math.abs(d.y - ref.y) < Math.abs(best.y - ref.y) ? d : best,
+        descs[0] ?? { text: '', y: 0 }
+      );
+
+      const nearestAmt = amts.reduce((best, a) =>
+        Math.abs(a.y - ref.y) < Math.abs(best.y - ref.y) ? a : best,
+        amts[0] ?? { cents: 0, y: 0 }
+      );
+
+      if (!nearestDesc?.text || nearestAmt?.cents === undefined) continue;
+      if (Math.abs(nearestAmt.y - ref.y) > 30) continue; // too far
+
+      const key = `${ref.ref}|${nearestDesc.text}|${nearestAmt.cents}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      results.push({
+        date: fallbackDate,
+        rawDescription: nearestDesc.text,
+        amountCents: Math.abs(nearestAmt.cents),
+        direction: nearestAmt.cents < 0 ? 'credit' : 'debit',
+      });
+    }
   }
+
   return results;
 }
 
