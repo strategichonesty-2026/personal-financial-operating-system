@@ -12,15 +12,22 @@ function parseDollar(text: string): number | null {
 }
 
 function findAmountOnSameRow(pdf: ExtractedPdf, labelPattern: RegExp): number | null {
-  const labelItem = pdf.items.find(i => labelPattern.test(i.text));
-  if (!labelItem) return null;
+  const labelIdx = pdf.items.findIndex(i => labelPattern.test(i.text));
+  if (labelIdx < 0) return null;
+  const labelItem = pdf.items[labelIdx]!;
+  // Try same-row coordinate match first
   const sameRow = pdf.items.filter(i =>
     i.page === labelItem.page &&
-    Math.abs(i.y - labelItem.y) <= 3 &&
+    Math.abs(i.y - labelItem.y) <= 5 &&
     i.x > labelItem.x
   );
   for (const item of sameRow.sort((a,b) => a.x - b.x)) {
     const val = parseDollar(item.text);
+    if (val !== null) return val;
+  }
+  // Fallback: check next few items in document order
+  for (let j = labelIdx + 1; j < Math.min(labelIdx + 5, pdf.items.length); j++) {
+    const val = parseDollar(pdf.items[j]!.text);
     if (val !== null) return val;
   }
   return null;
@@ -28,15 +35,11 @@ function findAmountOnSameRow(pdf: ExtractedPdf, labelPattern: RegExp): number | 
 
 export function extractBalances(pdf: ExtractedPdf, institution: string): StatementBalances {
   switch (institution) {
-    case 'wells_fargo': {
-      const t = pdf.items.map(i => i.text).join(' ');
-      const bm = t.match(/beginning balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i);
-      const em = t.match(/ending balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i);
+    case 'wells_fargo':
       return {
-        openingBalanceCents: bm?.[1] ? Math.round(parseFloat(bm[1].replace(/,/g,'')) * 100) : null,
-        closingBalanceCents: em?.[1] ? Math.round(parseFloat(em[1].replace(/,/g,'')) * 100) : null,
+        openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i),
+        closingBalanceCents: findAmountOnSameRow(pdf, /ending balance on/i),
       };
-    }
     case 'us_bank':
       return {
         openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i) ?? findAmountOnSameRow(pdf, /previous balance/i),
