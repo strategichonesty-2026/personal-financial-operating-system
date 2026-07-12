@@ -13,12 +13,7 @@ const INSTITUTION_LABELS: Record<string, string> = {
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-interface AccountOption {
-  id: string;
-  label: string;
-  last4: string | null;
-  inst: string | null;
-}
+interface AccountOption { id: string; label: string; last4: string | null; inst: string | null; }
 
 function instKeyFromDb(institution: string | null): string | null {
   if (!institution) return null;
@@ -37,37 +32,27 @@ function accountLabel(name: string, accountRef: string | null): string {
 }
 
 interface Detected {
-  filename: string;
-  institution: string | null;
-  accountLast4: string | null;
-  year: number | null;
-  month: number | null;
-  pages: number;
+  filename: string; institution: string | null; accountLast4: string | null;
+  year: number | null; month: number | null; pages: number;
 }
 
 interface UploadResult {
-  batchId: string;
-  institution: string;
-  pages: number;
-  parsed: number;
-  inserted: number;
-  duplicates: number;
+  batchId: string; institution: string; pages: number; parsed: number;
+  inserted: number; duplicates: number;
+  openingBalanceCents: number | null; closingBalanceCents: number | null;
+  periodStart: string; periodEnd: string; accountId: string;
 }
 
 type FileStatus = 'queued' | 'detecting' | 'needs_confirm' | 'importing' | 'done' | 'error';
 
 interface QueuedFile {
-  id: string;
-  file: File;
-  status: FileStatus;
-  detected: Detected | null;
-  accountId: string;
-  institution: string;
-  year: number;
-  month: number;
-  result: UploadResult | null;
-  error: string;
+  id: string; file: File; status: FileStatus; detected: Detected | null;
+  accountId: string; institution: string; year: number; month: number;
+  result: UploadResult | null; error: string;
 }
+
+const fmt = (cents: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
 export default function ImportPage() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
@@ -76,23 +61,16 @@ export default function ImportPage() {
   const [bulkDone, setBulkDone] = useState(false);
 
   useEffect(() => {
-    fetch('/api/v1/accounts')
-      .then(r => r.json())
-      .then(data => {
-        if (!data.data?.accounts) return;
-        const opts: AccountOption[] = (data.data.accounts as Array<{
-          id: string; name: string; accountRef: string | null; institution: string | null; type: string;
-        }>)
-          .filter(a => a.type === 'asset' || a.type === 'liability')
-          .map(a => ({
-            id:    a.id,
-            label: accountLabel(a.name, a.accountRef),
-            last4: a.accountRef,
-            inst:  instKeyFromDb(a.institution),
-          }));
-        setAccounts(opts);
-      })
-      .catch(() => {});
+    fetch('/api/v1/accounts').then(r => r.json()).then(data => {
+      if (!data.data?.accounts) return;
+      const opts: AccountOption[] = (data.data.accounts as Array<{
+        id: string; name: string; accountRef: string | null; institution: string | null; type: string;
+      }>).filter(a => a.type === 'asset' || a.type === 'liability').map(a => ({
+        id: a.id, label: accountLabel(a.name, a.accountRef),
+        last4: a.accountRef, inst: instKeyFromDb(a.institution),
+      }));
+      setAccounts(opts);
+    }).catch(() => {});
   }, []);
 
   function updateFile(id: string, patch: Partial<QueuedFile>) {
@@ -103,22 +81,13 @@ export default function ImportPage() {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     setBulkDone(false);
-
     const newItems: QueuedFile[] = files.map(file => ({
-      id:          crypto.randomUUID(),
-      file,
-      status:      'queued' as FileStatus,
-      detected:    null,
-      accountId:   '',
-      institution: '',
-      year:        new Date().getFullYear(),
-      month:       new Date().getMonth() + 1,
-      result:      null,
-      error:       '',
+      id: crypto.randomUUID(), file, status: 'queued' as FileStatus,
+      detected: null, accountId: '', institution: '',
+      year: new Date().getFullYear(), month: new Date().getMonth() + 1,
+      result: null, error: '',
     }));
-
     setQueue(prev => [...prev, ...newItems]);
-
     for (const item of newItems) {
       updateFile(item.id, { status: 'detecting' });
       setActiveId(item.id);
@@ -128,19 +97,14 @@ export default function ImportPage() {
         const res  = await fetch('/api/v1/import/detect', { method: 'POST', body: fd });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error);
-
         const detected: Detected = data;
-        const matchedAccount = accounts.find(
-          a => a.last4 === detected.accountLast4 && a.inst === detected.institution
-        );
-
+        const matchedAccount = accounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
         updateFile(item.id, {
-          status:      'needs_confirm',
-          detected,
-          accountId:   matchedAccount?.id ?? '',
+          status: 'needs_confirm', detected,
+          accountId: matchedAccount?.id ?? '',
           institution: detected.institution ?? '',
-          year:        detected.year  ?? new Date().getFullYear(),
-          month:       detected.month ?? new Date().getMonth() + 1,
+          year: detected.year ?? new Date().getFullYear(),
+          month: detected.month ?? new Date().getMonth() + 1,
         });
       } catch (err) {
         updateFile(item.id, { status: 'error', error: String(err) });
@@ -152,7 +116,6 @@ export default function ImportPage() {
   async function handleImportOne(id: string) {
     const item = queue.find(f => f.id === id);
     if (!item || !item.accountId) return;
-
     updateFile(id, { status: 'importing' });
     try {
       const fd = new FormData();
@@ -161,11 +124,9 @@ export default function ImportPage() {
       fd.append('year', String(item.year));
       fd.append('month', String(item.month));
       if (item.institution) fd.append('institution', item.institution);
-
       const res  = await fetch('/api/v1/import', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Import failed');
-
       updateFile(id, { status: 'done', result: data });
     } catch (err) {
       updateFile(id, { status: 'error', error: String(err) });
@@ -174,25 +135,27 @@ export default function ImportPage() {
 
   async function handleImportAll() {
     const toImport = queue.filter(f => f.status === 'needs_confirm' && f.accountId);
-    for (const item of toImport) {
-      await handleImportOne(item.id);
-    }
+    for (const item of toImport) await handleImportOne(item.id);
     setBulkDone(true);
   }
 
-  function removeFile(id: string) {
-    setQueue(q => q.filter(f => f.id !== id));
+  function removeFile(id: string) { setQueue(q => q.filter(f => f.id !== id)); }
+  function reset() { setQueue([]); setBulkDone(false); setActiveId(null); }
+
+  function reconcileUrl(result: UploadResult): string {
+    const params = new URLSearchParams({
+      accountId:   result.accountId,
+      periodStart: result.periodStart,
+      periodEnd:   result.periodEnd,
+      ...(result.openingBalanceCents != null ? { opening: String(result.openingBalanceCents / 100) } : {}),
+      ...(result.closingBalanceCents != null ? { closing: String(result.closingBalanceCents / 100) } : {}),
+    });
+    return `/dashboard/reconciliation?${params.toString()}`;
   }
 
-  function reset() {
-    setQueue([]);
-    setBulkDone(false);
-    setActiveId(null);
-  }
-
-  const readyToImport  = queue.filter(f => f.status === 'needs_confirm' && f.accountId);
-  const totalInserted  = queue.reduce((sum, f) => sum + (f.result?.inserted ?? 0), 0);
-  const totalDupes     = queue.reduce((sum, f) => sum + (f.result?.duplicates ?? 0), 0);
+  const readyToImport = queue.filter(f => f.status === 'needs_confirm' && f.accountId);
+  const totalInserted = queue.reduce((sum, f) => sum + (f.result?.inserted ?? 0), 0);
+  const totalDupes    = queue.reduce((sum, f) => sum + (f.result?.duplicates ?? 0), 0);
 
   return (
     <div style={{ maxWidth: '720px' }}>
@@ -296,11 +259,24 @@ export default function ImportPage() {
               {item.status === 'importing' && <div style={{ fontSize: '0.85rem', color: '#888' }}>Importing transactions...</div>}
 
               {item.status === 'done' && item.result && (
-                <div style={{ fontSize: '0.85rem', color: '#444', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                  <span><strong>{item.result.inserted}</strong> staged</span>
-                  <span><strong>{item.result.duplicates}</strong> dupes skipped</span>
-                  <span><strong>{item.result.pages}</strong> pages</span>
-                  <a href={`/dashboard/import/${item.result.batchId}`} style={{ color: '#2E4057', fontWeight: 600 }}>Review →</a>
+                <div style={{ fontSize: '0.85rem', color: '#444' }}>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                    <span><strong>{item.result.inserted}</strong> staged</span>
+                    <span><strong>{item.result.duplicates}</strong> dupes skipped</span>
+                    <span><strong>{item.result.pages}</strong> pages</span>
+                  </div>
+                  {(item.result.openingBalanceCents != null || item.result.closingBalanceCents != null) && (
+                    <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.5rem', color: '#555' }}>
+                      {item.result.openingBalanceCents != null && <span>Opening: <strong>{fmt(item.result.openingBalanceCents)}</strong></span>}
+                      {item.result.closingBalanceCents != null && <span>Closing: <strong>{fmt(item.result.closingBalanceCents)}</strong></span>}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                    <a href={`/dashboard/import/${item.result.batchId}`} style={{ color: '#2E4057', fontWeight: 600 }}>Review →</a>
+                    <a href={reconcileUrl(item.result)} style={{ color: '#1d4ed8', fontWeight: 600, background: '#eff6ff', padding: '0.2rem 0.75rem', borderRadius: '4px' }}>
+                      🔁 Reconcile →
+                    </a>
+                  </div>
                 </div>
               )}
 

@@ -12,6 +12,7 @@ import { loadPatterns, normalizeTransaction } from './normalizer';
 import { filterDuplicates } from './duplicate-detector';
 import { detectTransfers } from './transfer-detector';
 import { writeStagedTransactions } from './writer';
+import { extractBalances } from './balance-extractor';
 
 export interface PipelineResult {
   batchId: string;
@@ -20,10 +21,14 @@ export interface PipelineResult {
   parsed: number;
   inserted: number;
   duplicates: number;
-  // Audit fields
   rawItemCount: number;
   rowsGrouped: number;
   transfersFound: number;
+  openingBalanceCents: number | null;
+  closingBalanceCents: number | null;
+  periodStart: string;
+  periodEnd: string;
+  accountId: string;
 }
 
 export async function runImportPipeline(
@@ -35,35 +40,21 @@ export async function runImportPipeline(
   statementMonth: number,
   institutionOverride?: string | null
 ): Promise<PipelineResult> {
-  // 1. Extract text from PDF
   const extracted = await extractPdfText(buffer, filename);
-
-  // 2. Detect institution (allow manual override)
   const institution = institutionOverride ?? detectInstitution(extracted.text);
-  if (!institution) {
-    throw new Error('Could not detect institution from PDF. Please select manually.');
-  }
+  if (!institution) throw new Error('Could not detect institution from PDF. Please select manually.');
 
-  // 3. Get parser
   const parser = getParser(institution);
-  if (!parser) {
-    throw new Error(`No parser available for institution: ${institution}`);
-  }
+  if (!parser) throw new Error(`No parser available for institution: ${institution}`);
 
-  // 4. Create import batch record
   const batchId = crypto.randomUUID();
   await db.insert(importBatches).values({
-    id:          batchId,
-    userId,
-    institution,
-    accountId,
-    filename,
-    r2Key:       `imports/${userId}/${batchId}/${filename}`,
-    status:      'processing',
+    id: batchId, userId, institution, accountId, filename,
+    r2Key: `imports/${userId}/${batchId}/${filename}`,
+    status: 'processing',
   });
 
   try {
-    // 5. Parse transactions (use coordinate-aware parser for WF)
     const period = { year: statementYear, month: statementMonth };
     const coordinateParsers: Record<string, typeof parseWellsFargo> = {
       wells_fargo: parseWellsFargo,
@@ -77,97 +68,66 @@ export async function runImportPipeline(
       ? coordinateParser(extracted, period)
       : parser.parse(extracted.text, period);
 
-    // 6. Load merchant patterns
     const patterns = await loadPatterns();
-
-    // 7. Normalize each transaction
     const normalized = parsed.map(txn => normalizeTransaction(txn, patterns));
-
-    // 8. Detect duplicates (pass normalized so hashes are consistent)
     const withDuplicates = await filterDuplicates(accountId, normalized);
-
-    // 9. Detect transfers (re-attach normalized txn)
     const withTransfers = detectTransfers(
-      withDuplicates.map(item => ({
-        ...item,
-        txn: normalizeTransaction(item.txn, patterns),
-      }))
+      withDuplicates.map(item => ({ ...item, txn: normalizeTransaction(item.txn, patterns) }))
     );
-
-    // 10. Write to staged_transactions
-    const { inserted, duplicates } = await writeStagedTransactions(
-      batchId,
-      accountId,
-      withTransfers
-    );
-
+    const { inserted, duplicates } = await writeStagedTransactions(batchId, accountId, withTransfers);
     const transfersFound = withTransfers.filter(i => i.transferCandidate).length;
 
-    // Write immutable parser audit record
+    // Extract opening/closing balances from PDF text
+    const balances = extractBalances(extracted, institution);
+
+    // Compute period start/end ISO strings
+    const periodStart = `${statementYear}-${String(statementMonth).padStart(2,'0')}-01`;
+    const lastDay = new Date(statementYear, statementMonth, 0).getDate();
+    const periodEnd = `${statementYear}-${String(statementMonth).padStart(2,'0')}-${lastDay}`;
+
     await db.insert(parserAudit).values({
-      batchId,
-      userId,
-      institution,
-      filename,
-      accountId:      accountId ?? null,
-      statementYear,
-      statementMonth,
+      batchId, userId, institution, filename,
+      accountId: accountId ?? null,
+      statementYear, statementMonth,
       pagesExtracted:    extracted.pages,
       rawItemCount:      extracted.items.length,
-      rowsGrouped:       0,      // parsers don't expose this yet
+      rowsGrouped:       0,
       rowsParsed:        parsed.length,
-      rowsSkippedFilter: 0,      // parsers don't expose this yet
+      rowsSkippedFilter: 0,
       rowsSkippedDedup:  duplicates,
       normalized:        normalized.length,
       duplicatesFound:   duplicates,
-      transfersFound,
-      inserted,
-      status:            'success',
+      transfersFound, inserted,
+      status: 'success',
     });
 
     return {
-      batchId,
-      institution,
+      batchId, institution,
       pages: extracted.pages,
       parsed: parsed.length,
-      inserted,
-      duplicates,
-      rawItemCount:   extracted.items.length,
-      rowsGrouped:    0,
+      inserted, duplicates,
+      rawItemCount: extracted.items.length,
+      rowsGrouped: 0,
       transfersFound,
+      openingBalanceCents: balances.openingBalanceCents,
+      closingBalanceCents: balances.closingBalanceCents,
+      periodStart, periodEnd, accountId,
     };
 
   } catch (err) {
-    // Write audit record for failed imports too
     try {
       await db.insert(parserAudit).values({
-        batchId,
-        userId,
+        batchId, userId,
         institution: institution ?? 'unknown',
-        filename,
-        accountId:      accountId ?? null,
-        statementYear,
-        statementMonth,
-        pagesExtracted: 0,
-        rawItemCount:   0,
-        rowsGrouped:    0,
-        rowsParsed:     0,
-        rowsSkippedFilter: 0,
-        rowsSkippedDedup:  0,
-        normalized:     0,
-        duplicatesFound: 0,
-        transfersFound: 0,
-        inserted:       0,
-        status:         'error',
-        errorMessage:   String(err),
+        filename, accountId: accountId ?? null,
+        statementYear, statementMonth,
+        pagesExtracted: 0, rawItemCount: 0, rowsGrouped: 0,
+        rowsParsed: 0, rowsSkippedFilter: 0, rowsSkippedDedup: 0,
+        normalized: 0, duplicatesFound: 0, transfersFound: 0, inserted: 0,
+        status: 'error', errorMessage: String(err),
       });
     } catch { /* don't mask original error */ }
-
-    // Mark batch as error
-    await db
-      .update(importBatches)
-      .set({ status: 'error', errorMessage: String(err), updatedAt: new Date() })
-      .where(eq(importBatches.id, batchId));
+    await db.update(importBatches).set({ status: 'error', errorMessage: String(err), updatedAt: new Date() }).where(eq(importBatches.id, batchId));
     throw err;
   }
 }
