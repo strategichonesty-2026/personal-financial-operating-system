@@ -11,9 +11,9 @@ function parseDollar(text: string): number | null {
   return Math.round(parseFloat(cleaned) * 100);
 }
 
-function findAmount(text: string, ...patterns: RegExp[]): number | null {
+function searchText(fullText: string, ...patterns: RegExp[]): number | null {
   for (const pattern of patterns) {
-    const m = text.match(pattern);
+    const m = fullText.match(pattern);
     if (m) {
       const val = parseDollar(m[1] ?? '');
       if (val !== null) return val;
@@ -23,28 +23,29 @@ function findAmount(text: string, ...patterns: RegExp[]): number | null {
 }
 
 export function extractBalances(pdf: ExtractedPdf, institution: string): StatementBalances {
+  // Join all text items with space — handles cases where label and amount are separate items
   const text = pdf.items.map(i => i.text).join(' ');
 
   switch (institution) {
     case 'wells_fargo':
       return {
-        openingBalanceCents: findAmount(text,
-          /beginning balance on \S+\s+\$?([\d,]+\.\d{2})/i,
-          /opening balance\s+\$?([\d,]+\.\d{2})/i
+        openingBalanceCents: searchText(text,
+          /beginning balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i,
+          /beginning balance\s+\$?([\d,]+\.\d{2})/i
         ),
-        closingBalanceCents: findAmount(text,
-          /ending balance on \S+\s+\$?([\d,]+\.\d{2})/i,
-          /closing balance\s+\$?([\d,]+\.\d{2})/i
+        closingBalanceCents: searchText(text,
+          /ending balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i,
+          /ending balance\s+\$?([\d,]+\.\d{2})/i
         ),
       };
 
     case 'us_bank':
       return {
-        openingBalanceCents: findAmount(text,
+        openingBalanceCents: searchText(text,
           /beginning balance\s+\$?([\d,]+\.\d{2})/i,
           /previous balance\s+\$?([\d,]+\.\d{2})/i
         ),
-        closingBalanceCents: findAmount(text,
+        closingBalanceCents: searchText(text,
           /ending balance\s+\$?([\d,]+\.\d{2})/i,
           /new balance\s+\$?([\d,]+\.\d{2})/i
         ),
@@ -52,10 +53,10 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
 
     case 'synchrony':
       return {
-        openingBalanceCents: findAmount(text,
+        openingBalanceCents: searchText(text,
           /previous balance\s+\$?([\d,]+\.\d{2})/i
         ),
-        closingBalanceCents: findAmount(text,
+        closingBalanceCents: searchText(text,
           /new balance\s+\$?([\d,]+\.\d{2})/i,
           /statement balance\s+\$?([\d,]+\.\d{2})/i
         ),
@@ -63,20 +64,20 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
 
     case 'chase':
       return {
-        openingBalanceCents: findAmount(text,
+        openingBalanceCents: searchText(text,
           /previous balance\s+\$?([\d,]+\.\d{2})/i
         ),
-        closingBalanceCents: findAmount(text,
+        closingBalanceCents: searchText(text,
           /new balance\s+\$?([\d,]+\.\d{2})/i
         ),
       };
 
     case 'citi':
       return {
-        openingBalanceCents: findAmount(text,
+        openingBalanceCents: searchText(text,
           /previous balance\s+\$?([\d,]+\.\d{2})/i
         ),
-        closingBalanceCents: findAmount(text,
+        closingBalanceCents: searchText(text,
           /new balance\s+\$?([\d,]+\.\d{2})/i,
           /total balance\s+\$?([\d,]+\.\d{2})/i
         ),
@@ -84,10 +85,10 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
 
     case 'bofa':
       return {
-        openingBalanceCents: findAmount(text,
+        openingBalanceCents: searchText(text,
           /beginning balance\s+\$?([\d,]+\.\d{2})/i
         ),
-        closingBalanceCents: findAmount(text,
+        closingBalanceCents: searchText(text,
           /ending balance\s+\$?([\d,]+\.\d{2})/i
         ),
       };
