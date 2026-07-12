@@ -1,37 +1,17 @@
 import { UserButton } from '@clerk/nextjs';
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: '100vh', background: '#F5F5F5' }}>
-      {/* Top navigation bar */}
-      <nav style={{
-        background: '#2E4057',
-        padding: '0 2rem',
-        height: '60px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-      }}>
+      <nav style={{ background: '#2E4057', padding: '0 2rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <span style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem' }}>
-            PFOS
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>
-            Personal Financial Operating System
-          </span>
+          <a href="/dashboard" style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem', textDecoration: 'none' }}>PFOS</a>
+          <a href="/dashboard/import" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Import</a>
+          <a href="/dashboard/reconciliation" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Reconcile</a>
+          <a href="/dashboard/reports/trial-balance" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Trial Balance</a>
         </div>
         <UserButton afterSignOutUrl="/sign-in" />
-        <a href="/dashboard/import" style={{ color: '#2E4057', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: '4px' }}>
-        Import
-      </a>
-    </nav>
-
-      {/* Main content */}
+      </nav>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         {children}
       </main>
