@@ -80,7 +80,7 @@ export function detectInstitution(text: string): string | null {
   if (t.includes('BANK OF AMERICA'))                              return 'bofa';
   if (t.includes('CITICARDS') || t.includes('COSTCO ANYWHERE VISA')) return 'citi';
   if (t.includes('SYNCHRONY'))                                    return 'synchrony';
-  if (t.includes('CHASE'))                                        return 'chase';
   if (t.includes('WELLS FARGO'))                                  return 'wells_fargo';
+  if (t.includes('CHASE'))                                        return 'chase';
   return null;
 }
