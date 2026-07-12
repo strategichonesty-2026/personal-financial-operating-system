@@ -69,7 +69,8 @@ export async function runImportPipeline(
       : parser.parse(extracted.text, period);
 
     const patterns = await loadPatterns();
-    const normalized = parsed.map(txn => normalizeTransaction(txn, patterns));
+    const yearFiltered = parsed.filter(t => parseInt(t.date.slice(0,4),10) === statementYear);
+    const normalized = yearFiltered.map(txn => normalizeTransaction(txn, patterns));
     const withDuplicates = await filterDuplicates(accountId, normalized);
     const withTransfers = detectTransfers(
       withDuplicates.map(item => ({ ...item, txn: normalizeTransaction(item.txn, patterns) }))
@@ -104,7 +105,7 @@ export async function runImportPipeline(
     return {
       batchId, institution,
       pages: extracted.pages,
-      parsed: parsed.length,
+      parsed: yearFiltered.length,
       inserted, duplicates,
       rawItemCount: extracted.items.length,
       rowsGrouped: 0,
@@ -130,4 +131,15 @@ export async function runImportPipeline(
     await db.update(importBatches).set({ status: 'error', errorMessage: String(err), updatedAt: new Date() }).where(eq(importBatches.id, batchId));
     throw err;
   }
+}
+
+// Year-boundary filter: exported for use in pipeline
+export function filterToStatementYear(
+  transactions: { date: string; rawDescription: string; amountCents: number; direction: string }[],
+  year: number
+): typeof transactions {
+  return transactions.filter(t => {
+    const txnYear = parseInt(t.date.slice(0, 4), 10);
+    return txnYear === year;
+  });
 }
