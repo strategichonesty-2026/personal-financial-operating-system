@@ -147,6 +147,11 @@ function DetailView({ batchId, accounts, onBack }: { batchId: string; accounts: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+
+  useEffect(() => {
+    const id = searchParams.get('accountId') ?? '';
+    if (id && accounts.length > 0) setAccountId(id);
+  }, [accounts]);
   useEffect(() => {
     if (!batchId) return;
     setLoadingTxns(true);
