@@ -60,7 +60,16 @@ function ReconciliationPage() {
   }, [batchId]);
 
   if (view === 'detail' || batchId) {
-    return <DetailView batchId={batchId!} onBack={() => { router.push('/dashboard/reconciliation'); setView('list'); }} />;
+    const sp = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    return <DetailView
+      batchId={batchId!}
+      initialAccountId={sp.get('accountId') ?? ''}
+      initialPeriodStart={sp.get('periodStart') ?? ''}
+      initialPeriodEnd={sp.get('periodEnd') ?? ''}
+      initialOpening={sp.get('opening') ?? ''}
+      initialClosing={sp.get('closing') ?? ''}
+      onBack={() => { router.push('/dashboard/reconciliation'); setView('list'); }}
+    />;
   }
 
   const grouped = batches.reduce((acc, b) => {
@@ -133,14 +142,14 @@ function ReconciliationPage() {
   );
 }
 
-function DetailView({ batchId, onBack }: { batchId: string; onBack: () => void }) {
+function DetailView({ batchId, initialAccountId, initialPeriodStart, initialPeriodEnd, initialOpening, initialClosing, onBack }: { batchId: string; initialAccountId: string; initialPeriodStart: string; initialPeriodEnd: string; initialOpening: string; initialClosing: string; onBack: () => void }) {
   const searchParams = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '');
-  const [periodStart, setPeriodStart] = useState(searchParams.get('periodStart') ?? '');
-  const [periodEnd, setPeriodEnd] = useState(searchParams.get('periodEnd') ?? '');
-  const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
-  const [closingBalance, setClosingBalance] = useState(searchParams.get('closing') ?? '');
+  const [accountId, setAccountId] = useState(initialAccountId);
+  const [periodStart, setPeriodStart] = useState(initialPeriodStart);
+  const [periodEnd, setPeriodEnd] = useState(initialPeriodEnd);
+  const [openingBalance, setOpeningBalance] = useState(initialOpening);
+  const [closingBalance, setClosingBalance] = useState(initialClosing);
   const [txnInput, setTxnInput] = useState('');
   const [loadingTxns, setLoadingTxns] = useState(false);
   const [txnsLoaded, setTxnsLoaded] = useState(false);
