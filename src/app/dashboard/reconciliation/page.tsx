@@ -44,8 +44,18 @@ function txnsToText(txns: StatementTxn[]): string {
 
 function ReconciliationForm() {
   const searchParams = useSearchParams();
-  const [accounts] = useState<Account[]>(HARDCODED_ACCOUNTS);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId]           = useState(searchParams.get('accountId') ?? '');
+
+  useEffect(() => {
+    fetch("/api/v1/accounts").then(r => r.json()).then(data => {
+      if (!data.data?.accounts) return;
+      const opts: Account[] = (data.data.accounts as Array<{id:string;name:string;accountRef:string|null;institution:string|null;type:string}>)
+        .filter(a => a.type === "asset" || a.type === "liability")
+        .map(a => ({ id: a.id, code: a.code ?? "", name: a.accountRef ? `${a.name} ****${a.accountRef}` : a.name, type: a.type }));
+      setAccounts(opts);
+    }).catch(() => {});
+  }, []);
   const [periodStart, setPeriodStart]       = useState(searchParams.get('periodStart') ?? '');
   const [periodEnd, setPeriodEnd]           = useState(searchParams.get('periodEnd') ?? '');
   const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
