@@ -331,5 +331,5 @@ function StatusBadge({ status }: { status: FileStatus }) {
 }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#2E4057', marginBottom: '0.4rem' };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #D0D0D0', borderRadius: '6px', fontSize: '0.95rem', color: '#2E4057', background: '#fff', boxSizing: 'border-box' };
+const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.75rem', border: '1px solid #D0D0D0', borderRadius: '6px', fontSize: '0.85rem', color: '#2E4057', background: '#fff', boxSizing: 'border-box' };
 const btnStyle: React.CSSProperties = { background: '#2E4057', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.75rem 1.5rem', fontSize: '1rem', cursor: 'pointer', fontWeight: 600 };
