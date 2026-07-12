@@ -50,7 +50,7 @@ function ReconciliationForm() {
   useEffect(() => {
     fetch("/api/v1/accounts").then(r => r.json()).then(data => {
       if (!data.data?.accounts) return;
-      const opts: Account[] = (data.data.accounts as Array<{id:string;name:string;accountRef:string|null;institution:string|null;type:string}>)
+      const opts: Account[] = (data.data.accounts as Array<{id:string;code:string;name:string;accountRef:string|null;institution:string|null;type:string}>)
         .filter(a => a.type === "asset" || a.type === "liability")
         .map(a => ({ id: a.id, code: a.code ?? "", name: a.accountRef ? `${a.name} ****${a.accountRef}` : a.name, type: a.type }));
       setAccounts(opts);
