@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const extracted = await extractPdfText(buffer, file.name);
-    const institution = extracted.meta.institution ?? detectInstitution(extracted.text);
+    const institution = detectInstitution(extracted.text) ?? extracted.meta.institution;
 
     return NextResponse.json({
       ok: true,

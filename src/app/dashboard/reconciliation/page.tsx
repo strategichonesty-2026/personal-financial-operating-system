@@ -62,7 +62,7 @@ function ReconciliationPage() {
   }
 
   const grouped = batches.reduce((acc, b) => {
-    const key = b.institution;
+    const key = b.institution ?? 'unknown';
     if (!acc[key]) acc[key] = [];
     acc[key].push(b);
     return acc;
