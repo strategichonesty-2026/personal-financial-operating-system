@@ -55,7 +55,8 @@ export async function extractPdfText(
   const meta = { ...data.meta, periodStart: null as string|null, periodEnd: null as string|null };
   // Extract last4 from filename if extractor didn't find it
   if (!meta.accountLast4) {
-    const fnMatch = [...filename.matchAll(/\b(\d{4})\b/g)].pop();
+    const allMatches = Array.from(filename.matchAll(/\b(\d{4})\b/g));
+    const fnMatch = allMatches[allMatches.length - 1];
     if (fnMatch?.[1]) meta.accountLast4 = fnMatch[1];
   }
   const beginMatch = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);
