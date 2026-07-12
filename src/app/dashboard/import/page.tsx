@@ -23,7 +23,7 @@ function instKeyFromDb(institution: string | null): string | null {
   if (s.includes('citi'))         return 'citi';
   if (s.includes('synchrony'))    return 'synchrony';
   if (s.includes('chase'))        return 'chase';
-  if (s.includes('bank of america') || s.includes('bofa')) return 'bofa';
+  if (s.includes('bank of america') || s.includes('bofa') || s.includes('boa')) return 'bofa';
   return null;
 }
 
@@ -103,11 +103,9 @@ export default function ImportPage() {
         const data = await res.json();
         if (!data.ok) throw new Error(data.error);
         const detected: Detected = data;
-        // Auto-match by last4 first, then by institution if needed
-        let matchedAccount = accounts.find(a => a.last4 === detected.accountLast4);
-        if (!matchedAccount && detected.institution) {
-          matchedAccount = accounts.find(a => a.inst === detected.institution);
-        }
+        // Auto-match by institution + last4 (most specific), then last4 only
+        let matchedAccount = accounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
+        if (!matchedAccount) matchedAccount = accounts.find(a => a.last4 === detected.accountLast4);
         updateFile(item.id, {
           status: 'needs_confirm', detected,
           accountId: matchedAccount?.id ?? '',
