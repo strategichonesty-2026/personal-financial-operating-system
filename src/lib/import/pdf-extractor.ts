@@ -53,6 +53,13 @@ export async function extractPdfText(
 
   // Extract actual statement period dates from PDF items
   const meta = { ...data.meta, periodStart: null as string|null, periodEnd: null as string|null };
+  // Extract last4 from text if extractor didn't find it
+  if (!meta.accountLast4) {
+    const acctMatch = text.match(/account\s+number[:\s]+[\d\s]{0,20}(\d{4})/i)
+      ?? text.match(/ending in\s+(\d{4})/i)
+      ?? text.match(/\*{3,}(\d{4})/i);
+    if (acctMatch) meta.accountLast4 = acctMatch[1] ?? null;
+  }
   const beginMatch = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);
   const endMatch   = text.match(/ending balance on (\d{1,2})\/(\d{1,2})/i);
   if (beginMatch && meta.year && meta.month) {
