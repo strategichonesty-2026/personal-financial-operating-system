@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       year:  extracted.meta.year,
       month: extracted.meta.month,
       pages: extracted.pages,
+      periodStart: extracted.meta.periodStart,
+      periodEnd: extracted.meta.periodEnd,
     });
   } catch (error) {
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });

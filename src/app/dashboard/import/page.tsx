@@ -34,6 +34,7 @@ function accountLabel(name: string, accountRef: string | null): string {
 interface Detected {
   filename: string; institution: string | null; accountLast4: string | null;
   year: number | null; month: number | null; pages: number;
+  periodStart: string | null; periodEnd: string | null;
 }
 
 interface UploadResult {
@@ -41,6 +42,7 @@ interface UploadResult {
   inserted: number; duplicates: number;
   openingBalanceCents: number | null; closingBalanceCents: number | null;
   periodStart: string; periodEnd: string; accountId: string;
+  detectedPeriodStart: string | null; detectedPeriodEnd: string | null;
 }
 
 type FileStatus = 'queued' | 'detecting' | 'needs_confirm' | 'importing' | 'done' | 'error';
@@ -49,6 +51,7 @@ interface QueuedFile {
   id: string; file: File; status: FileStatus; detected: Detected | null;
   accountId: string; institution: string; year: number; month: number;
   result: UploadResult | null; error: string;
+  detectedPeriodStart: string | null; detectedPeriodEnd: string | null;
 }
 
 const fmt = (cents: number) =>
@@ -86,6 +89,7 @@ export default function ImportPage() {
       detected: null, accountId: '', institution: '',
       year: new Date().getFullYear(), month: new Date().getMonth() + 1,
       result: null, error: '',
+      detectedPeriodStart: null, detectedPeriodEnd: null,
     }));
     setQueue(prev => [...prev, ...newItems]);
     for (const item of newItems) {
@@ -105,6 +109,8 @@ export default function ImportPage() {
           institution: detected.institution ?? '',
           year: detected.year ?? new Date().getFullYear(),
           month: detected.month ?? new Date().getMonth() + 1,
+          detectedPeriodStart: detected.periodStart ?? null,
+          detectedPeriodEnd: detected.periodEnd ?? null,
         });
       } catch (err) {
         updateFile(item.id, { status: 'error', error: String(err) });
@@ -142,11 +148,11 @@ export default function ImportPage() {
   function removeFile(id: string) { setQueue(q => q.filter(f => f.id !== id)); }
   function reset() { setQueue([]); setBulkDone(false); setActiveId(null); }
 
-  function reconcileUrl(result: UploadResult): string {
+  function reconcileUrl(result: UploadResult, item: QueuedFile): string {
     const params = new URLSearchParams({ batchId: result.batchId,
       accountId:   result.accountId,
-      periodStart: result.periodStart,
-      periodEnd:   result.periodEnd,
+      periodStart: item.detectedPeriodStart ?? result.periodStart,
+      periodEnd:   item.detectedPeriodEnd   ?? result.periodEnd,
       ...(result.openingBalanceCents != null ? { opening: String(result.openingBalanceCents / 100) } : {}),
       ...(result.closingBalanceCents != null ? { closing: String(result.closingBalanceCents / 100) } : {}),
     });
@@ -273,7 +279,7 @@ export default function ImportPage() {
                   )}
                   <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <a href={`/dashboard/import/${item.result.batchId}`} style={{ color: '#2E4057', fontWeight: 600 }}>Review →</a>
-                    <a href={reconcileUrl(item.result)} style={{ color: '#1d4ed8', fontWeight: 600, background: '#eff6ff', padding: '0.2rem 0.75rem', borderRadius: '4px' }}>
+                    <a href={reconcileUrl(item.result, item)} style={{ color: '#1d4ed8', fontWeight: 600, background: '#eff6ff', padding: '0.2rem 0.75rem', borderRadius: '4px' }}>
                       🔁 Reconcile →
                     </a>
                   </div>

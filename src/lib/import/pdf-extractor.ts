@@ -10,6 +10,8 @@ export interface PdfMeta {
   accountLast4: string | null;
   year: number | null;
   month: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
 }
 
 export interface ExtractedPdf {
@@ -49,7 +51,20 @@ export async function extractPdfText(
   const pages = items.length ? Math.max(...items.map(i => i.page)) : 0;
   const text  = items.map(i => i.text).join(' ');
 
-  return { items, text, pages, filename, meta: data.meta };
+  // Extract actual statement period dates from PDF items
+  const meta = { ...data.meta, periodStart: null as string|null, periodEnd: null as string|null };
+  const beginMatch = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);
+  const endMatch   = text.match(/ending balance on (\d{1,2})\/(\d{1,2})/i);
+  if (beginMatch && meta.year && meta.month) {
+    const bm = parseInt(beginMatch[1]??'0'), bd = parseInt(beginMatch[2]??'0');
+    const byr = bm > meta.month ? meta.year - 1 : meta.year;
+    meta.periodStart = `${byr}-${String(bm).padStart(2,'0')}-${String(bd).padStart(2,'0')}`;
+  }
+  if (endMatch && meta.year && meta.month) {
+    const em = parseInt(endMatch[1]??'0'), ed = parseInt(endMatch[2]??'0');
+    meta.periodEnd = `${meta.year}-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
+  }
+  return { items, text, pages, filename, meta };
 }
 
 export function detectInstitution(text: string): string | null {
