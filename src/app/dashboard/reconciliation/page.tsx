@@ -136,7 +136,7 @@ function ReconciliationPage() {
 function DetailView({ batchId, onBack }: { batchId: string; onBack: () => void }) {
   const searchParams = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState('');
+  const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '');
   const [periodStart, setPeriodStart] = useState(searchParams.get('periodStart') ?? '');
   const [periodEnd, setPeriodEnd] = useState(searchParams.get('periodEnd') ?? '');
   const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
