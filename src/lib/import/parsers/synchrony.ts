@@ -43,10 +43,10 @@ export function parseSynchrony(pdf: ExtractedPdf, period: StatementPeriod): Pars
   const fallbackDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
 
   // Only process pages that have transaction data (skip cover/legal pages)
-  const txnPages = [...new Set(pdf.items.map(i => i.page))].filter(p => {
+  const txnPages = Array.from(new Set(pdf.items.map(i => i.page))).filter(p => {
     const pageItems = pdf.items.filter(i => i.page === p);
     return pageItems.some(i => i.x >= COL.REF_MIN && i.x <= COL.REF_MAX &&
-      /^[A-Z0-9]{10,}/.test(i.text.trim().split('\n')[0]));
+      /^[A-Z0-9]{10,}/.test((i.text.trim().split('\n')[0]) ?? ''));
   });
 
   for (const page of txnPages) {
