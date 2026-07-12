@@ -64,8 +64,8 @@ export default function ImportPage() {
   const [bulkDone, setBulkDone] = useState(false);
 
   useEffect(() => {
-    fetch('/api/v1/accounts').then(r => r.json()).then(data => {
-      if (!data.data?.accounts) return;
+    const fetchAccounts = () => fetch('/api/v1/accounts').then(r => r.json()).then(data => {
+      if (!data.data?.accounts) { setTimeout(fetchAccounts, 1500); return; }
       const opts: AccountOption[] = (data.data.accounts as Array<{
         id: string; name: string; accountRef: string | null; institution: string | null; type: string;
       }>).filter(a => a.type === 'asset' || a.type === 'liability').map(a => ({
@@ -73,7 +73,8 @@ export default function ImportPage() {
         last4: a.accountRef, inst: instKeyFromDb(a.institution),
       }));
       setAccounts(opts);
-    }).catch(() => {});
+    }).catch(() => setTimeout(fetchAccounts, 1500));
+    fetchAccounts();
   }, []);
 
   function updateFile(id: string, patch: Partial<QueuedFile>) {
