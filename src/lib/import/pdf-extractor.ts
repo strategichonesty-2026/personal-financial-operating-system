@@ -55,7 +55,7 @@ export async function extractPdfText(
   const meta = { ...data.meta, periodStart: null as string|null, periodEnd: null as string|null };
   // Extract last4 from filename if extractor didn't find it
   if (!meta.accountLast4) {
-    const allMatches = Array.from(filename.matchAll(/\b(\d{4})\b/g));
+    const allMatches = Array.from(filename.matchAll(/\b(\d{4})\b/g)).filter(m => !['2024','2025','2026','2027'].includes(m[1]??''));
     const fnMatch = allMatches[allMatches.length - 1];
     if (fnMatch?.[1]) meta.accountLast4 = fnMatch[1];
   }
