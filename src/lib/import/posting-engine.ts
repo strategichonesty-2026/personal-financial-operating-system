@@ -202,8 +202,17 @@ export async function postStagedTransactions(
           debitAccountId  = resolveId(rule.liabilityCode!, accountByCode);
           creditAccountId = bankAccount.id;
         } else {
-          debitAccountId  = resolveId(rule.debitCode!, accountByCode);
-          creditAccountId = resolveId(rule.creditCode!, accountByCode);
+          // Use bankAccount.id for the side matching transaction direction
+          // Only use rule codes for the CONTRA account
+          if (txn.direction === 'debit') {
+            // Money leaving bank account: credit bank, debit expense/contra
+            debitAccountId  = resolveId(rule.debitCode!, accountByCode);
+            creditAccountId = bankAccount.id;
+          } else {
+            // Money entering bank account: debit bank, credit income/contra
+            debitAccountId  = bankAccount.id;
+            creditAccountId = resolveId(rule.creditCode!, accountByCode);
+          }
         }
       }
 

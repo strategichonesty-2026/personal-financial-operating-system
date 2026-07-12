@@ -162,8 +162,8 @@ function DetailView({ batchId, initialAccountId, initialPeriodStart, initialPeri
     fetch('/api/v1/accounts').then(r => r.json()).then(d => {
       if (d.data?.accounts) {
         setAccounts((d.data.accounts as Array<{id:string;code:string;name:string;type:string}>).filter(a => a.type==='asset'||a.type==='liability'));
-        const id = searchParams.get('accountId') ?? '';
-        if (id) setAccountId(id);
+        // Use initialAccountId from props (already set in useState), don't overwrite
+        if (initialAccountId) setAccountId(initialAccountId);
       }
     }).catch(()=>{});
   }, []);
