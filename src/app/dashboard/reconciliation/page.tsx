@@ -1,77 +1,150 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+
+interface BatchMeta {
+  id: string; filename: string; institution: string; accountId: string;
+  status: string; createdAt: string; txnCount: number;
+  reconciliation: { status: string; differenceCents: number; confidenceScore: number; createdAt: string } | null;
+}
 
 interface Account { id: string; code: string; name: string; type: string; }
-interface StatementTxn { description: string; date: string; amountCents: number; direction: 'debit' | 'credit'; }
-interface ReconcileResult {
-  reconciliationId: string; statementCreditsCents: number; statementDebitsCents: number;
-  calculatedBalanceCents: number; differenceCents: number; statementBalances: boolean;
-  matchedCount: number; unmatchedStatementCount: number; unmatchedLedgerCount: number;
-  confidenceScore: number; status: string;
-  suggestions: Array<{ category: string; description: string; amountCents?: number; probability: number }>;
-  items: Array<{
-    matchType: string; matchScore: number;
-    statementDescription?: string; statementDate?: string;
-    statementAmountCents?: number; statementDirection?: string;
-    journalEntryId?: string; ledgerDescription?: string; ledgerAmountCents?: number;
-  }>;
-}
+
+const INST_LABELS: Record<string, string> = {
+  wells_fargo: 'Wells Fargo', us_bank: 'U.S. Bank', citi: 'Citi',
+  synchrony: 'Synchrony', chase: 'Chase', bofa: 'BofA',
+};
 
 const fmt = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
-const MATCH_COLORS: Record<string, string> = {
-  exact: '🟢', fuzzy: '🟡', unmatched_statement: '🔴', unmatched_ledger: '🟠',
-};
-
-const HARDCODED_ACCOUNTS: Account[] = [
-  { id: 'ea3dc024-95ca-412d-90d7-ab93a0de4ea9', code: '1011', name: 'WF Everyday Checking (4184)', type: 'asset' },
-  { id: '26f24223-a34d-42f0-9cc8-81e049b233d8', code: '1013', name: 'WF Way2Save Savings (8029)', type: 'asset' },
-  { id: '55a0b455-9512-4ba9-a063-1bab7fdee6d7', code: '1014', name: 'USB Gold Checking (6820)', type: 'asset' },
-  { id: '3a9dc5de-be96-46a9-b4ef-fee55bb928c7', code: '1015', name: 'USB Smartly Joint (1353)', type: 'asset' },
-  { id: 'af26b25b-5fb4-478b-91a9-6ccc6fa5efd6', code: '1016', name: 'BofA Adv Plus Checking (1961)', type: 'asset' },
-  { id: '8bbe8b88-e09b-411f-9dd8-0d23970726da', code: '1017', name: 'BofA Regular Savings (6951)', type: 'asset' },
-  { id: 'b01b6747-c5e4-45f1-8bfd-3499388d5108', code: '2011', name: 'SamsClub Mastercard (1629)', type: 'liability' },
-  { id: 'c653eb83-ca2d-49e7-9a73-4c9934bb2b73', code: '2012', name: 'Chase Amazon Visa (2877)', type: 'liability' },
-  { id: '8ad3001a-486d-498a-ab5c-c1582915025f', code: '2013', name: 'Citi Costco Visa (4621)', type: 'liability' },
-];
-
-function txnsToText(txns: StatementTxn[]): string {
-  return txns.map(t => `${t.description}|${t.date}|${(t.amountCents/100).toFixed(2)}|${t.direction}`).join('\n');
+function statusBadge(batch: BatchMeta) {
+  const r = batch.reconciliation;
+  if (!r) return <span style={{ color: '#6b7280', background: '#f3f4f6', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem' }}>Not reconciled</span>;
+  if (r.status === 'complete') return <span style={{ color: '#16a34a', background: '#f0fdf4', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>✅ Reconciled</span>;
+  return <span style={{ color: '#d97706', background: '#fffbeb', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>⚠️ Review ({fmt(Math.abs(r.differenceCents))} diff)</span>;
 }
 
-function ReconciliationForm() {
-  const searchParams = useSearchParams();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId]           = useState(searchParams.get('accountId') ?? '');
+function dedupBatches(batches: BatchMeta[]): BatchMeta[] {
+  const seen = new Set<string>();
+  return batches.filter(b => {
+    const key = `${b.filename}|${b.accountId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
-  useEffect(() => {
-    fetch("/api/v1/accounts").then(r => r.json()).then(data => {
-      if (!data.data?.accounts) return;
-      const opts: Account[] = (data.data.accounts as Array<{id:string;code:string;name:string;accountRef:string|null;institution:string|null;type:string}>)
-        .filter(a => a.type === "asset" || a.type === "liability")
-        .map(a => ({ id: a.id, code: a.code ?? "", name: a.accountRef ? `${a.name} ****${a.accountRef}` : a.name, type: a.type }));
-      setAccounts(opts);
-    }).catch(() => {});
-  }, []);
-  const [periodStart, setPeriodStart]       = useState(searchParams.get('periodStart') ?? '');
-  const [periodEnd, setPeriodEnd]           = useState(searchParams.get('periodEnd') ?? '');
-  const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
-  const [closingBalance, setClosingBalance] = useState(searchParams.get('closing') ?? '');
-  const [txnInput, setTxnInput]             = useState('');
-  const [loadingTxns, setLoadingTxns]       = useState(false);
-  const [txnsLoaded, setTxnsLoaded]         = useState(false);
-  const [result, setResult]                 = useState<ReconcileResult | null>(null);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState('');
-  const [activeTab, setActiveTab]           = useState<'all'|'matched'|'unmatched'|'suggestions'>('all');
+function ReconciliationPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [batches, setBatches] = useState<BatchMeta[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reconRunning, setReconRunning] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'detail'>('list');
 
   const batchId = searchParams.get('batchId');
-  const isPreFilled = !!(searchParams.get('accountId') && searchParams.get('opening') && searchParams.get('closing'));
 
-  // Auto-load transactions from batchId
+  useEffect(() => {
+    if (batchId) { setView('detail'); return; }
+    fetch('/api/v1/import/batches').then(r => r.json()).then(d => {
+      if (d.ok) setBatches(dedupBatches(d.batches));
+    }).finally(() => setLoading(false));
+    fetch('/api/v1/accounts').then(r => r.json()).then(d => {
+      if (d.data?.accounts) setAccounts(d.data.accounts);
+    });
+  }, [batchId]);
+
+  if (view === 'detail' || batchId) {
+    return <DetailView batchId={batchId!} accounts={accounts} onBack={() => { router.push('/dashboard/reconciliation'); setView('list'); }} />;
+  }
+
+  const grouped = batches.reduce((acc, b) => {
+    const key = b.institution;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(b);
+    return acc;
+  }, {} as Record<string, BatchMeta[]>);
+
+  const totalReconciled = batches.filter(b => b.reconciliation?.status === 'complete').length;
+  const totalReview = batches.filter(b => b.reconciliation && b.reconciliation.status !== 'complete').length;
+  const totalPending = batches.filter(b => !b.reconciliation).length;
+
+  return (
+    <div style={{ maxWidth: '900px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.8rem', color: '#2E4057', marginBottom: '0.25rem' }}>Bank Reconciliation</h1>
+          <p style={{ color: '#666' }}>Review and reconcile all imported statements</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+        {[
+          { label: '✅ Reconciled', value: totalReconciled, color: '#16a34a' },
+          { label: '⚠️ Needs Review', value: totalReview, color: '#d97706' },
+          { label: '⏳ Not Started', value: totalPending, color: '#6b7280' },
+        ].map(c => (
+          <div key={c.label} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{c.label}</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 700, color: c.color }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ padding: '2rem', color: '#6b7280' }}>Loading statements...</div>
+      ) : batches.length === 0 ? (
+        <div style={{ padding: '2rem', color: '#6b7280', textAlign: 'center' }}>
+          No imported statements yet. <a href="/dashboard/import" style={{ color: '#1d4ed8' }}>Import PDFs →</a>
+        </div>
+      ) : (
+        Object.entries(grouped).map(([inst, instBatches]) => (
+          <div key={inst} style={{ marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#2E4057', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {INST_LABELS[inst] ?? inst}
+            </h2>
+            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+              {instBatches.map((batch, i) => (
+                <div key={batch.id} style={{ display: 'flex', alignItems: 'center', padding: '0.875rem 1rem', borderBottom: i < instBatches.length-1 ? '1px solid #f3f4f6' : 'none', gap: '1rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#1f2937' }}>{batch.filename}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>
+                      {batch.txnCount} transactions · {new Date(batch.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div>{statusBadge(batch)}</div>
+                  <button
+                    onClick={() => router.push(`/dashboard/reconciliation?batchId=${batch.id}&accountId=${batch.accountId}`)}
+                    style={{ background: '#1d4ed8', color: 'white', border: 'none', borderRadius: '6px', padding: '0.4rem 0.875rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {batch.reconciliation ? 'Re-reconcile' : 'Reconcile →'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function DetailView({ batchId, accounts, onBack }: { batchId: string; accounts: Account[]; onBack: () => void }) {
+  const searchParams = useSearchParams();
+  const [accountId, setAccountId] = useState(searchParams.get('accountId') ?? '');
+  const [periodStart, setPeriodStart] = useState(searchParams.get('periodStart') ?? '');
+  const [periodEnd, setPeriodEnd] = useState(searchParams.get('periodEnd') ?? '');
+  const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
+  const [closingBalance, setClosingBalance] = useState(searchParams.get('closing') ?? '');
+  const [txnInput, setTxnInput] = useState('');
+  const [loadingTxns, setLoadingTxns] = useState(false);
+  const [txnsLoaded, setTxnsLoaded] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   useEffect(() => {
     if (!batchId) return;
     setLoadingTxns(true);
@@ -79,133 +152,68 @@ function ReconciliationForm() {
       .then(r => r.json())
       .then(data => {
         if (data.ok && data.transactions?.length) {
-          setTxnInput(txnsToText(data.transactions));
+          setTxnInput(data.transactions.map((t: any) => `${t.description}|${t.date}|${(t.amountCents/100).toFixed(2)}|${t.direction}`).join('\n'));
           setTxnsLoaded(true);
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoadingTxns(false));
+      }).finally(() => setLoadingTxns(false));
   }, [batchId]);
-
-  function parseTxns(): StatementTxn[] {
-    return txnInput.trim().split('\n').filter(Boolean).map(line => {
-      const parts = line.split('|');
-      if (parts.length < 4) return null;
-      return {
-        description: (parts[0] ?? '').trim(),
-        date: (parts[1] ?? '').trim(),
-        amountCents: Math.round(parseFloat((parts[2] ?? '0').trim()) * 100),
-        direction: (parts[3] ?? 'debit').trim() as 'debit' | 'credit',
-      };
-    }).filter(Boolean) as StatementTxn[];
-  }
 
   async function runReconcile() {
     setError(''); setResult(null);
-    if (!accountId)      { setError('Select an account.'); return; }
-    if (!openingBalance) { setError('Enter the opening balance.'); return; }
-    if (!closingBalance) { setError('Enter the closing balance.'); return; }
-    if (!txnInput.trim()) { setError('No transactions found — import may have staged 0 transactions.'); return; }
+    if (!accountId) { setError('Select an account.'); return; }
+    if (!openingBalance) { setError('Enter opening balance.'); return; }
+    if (!closingBalance) { setError('Enter closing balance.'); return; }
+    if (!txnInput.trim()) { setError('No transactions loaded.'); return; }
     setLoading(true);
     try {
-      const txns = parseTxns();
+      const txns = txnInput.trim().split('\n').filter(Boolean).map(line => {
+        const p = line.split('|');
+        return { description: (p[0]??'').trim(), date: (p[1]??'').trim(), amountCents: Math.round(parseFloat((p[2]??'0').trim())*100), direction: (p[3]??'debit').trim() };
+      });
       const res = await fetch('/api/v1/reconcile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountId, periodStart, periodEnd,
-          openingBalanceCents: Math.round(parseFloat(openingBalance) * 100),
-          closingBalanceCents: Math.round(parseFloat(closingBalance) * 100),
-          statementTransactions: txns,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId, periodStart, periodEnd, openingBalanceCents: Math.round(parseFloat(openingBalance)*100), closingBalanceCents: Math.round(parseFloat(closingBalance)*100), statementTransactions: txns }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResult(data);
-      setActiveTab('all');
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
+    } catch(e) { setError(String(e)); } finally { setLoading(false); }
   }
 
-  const filteredItems = result?.items.filter(i => {
-    if (activeTab === 'matched')   return i.matchType === 'exact' || i.matchType === 'fuzzy';
-    if (activeTab === 'unmatched') return i.matchType === 'unmatched_statement' || i.matchType === 'unmatched_ledger';
-    return true;
-  }) ?? [];
-
   const scoreColor = (s: number) => s >= 80 ? '#22c55e' : s >= 50 ? '#f59e0b' : '#ef4444';
+  const fmt2 = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents/100);
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto', fontFamily: 'system-ui, sans-serif' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>Bank Reconciliation</h1>
-      <p style={{ color: '#6b7280', marginBottom: '2rem' }}>Reconcile your bank statement against PFOS journal entries</p>
+    <div style={{ maxWidth: '1100px' }}>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#1d4ed8', cursor: 'pointer', fontSize: '0.9rem', marginBottom: '1rem', padding: 0 }}>← Back to all statements</button>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1.5rem' }}>Bank Reconciliation</h1>
 
       {!result && (
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.5rem', marginBottom: '2rem' }}>
-
-          {isPreFilled && (
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.875rem', color: '#1d4ed8' }}>
-              {loadingTxns
-                ? '⏳ Loading transactions from import...'
-                : txnsLoaded
-                  ? `✅ Ready — ${parseTxns().length} transactions loaded from import. Review and click Run.`
-                  : '✅ Account, period, and balances pre-filled. Add transactions below.'}
-            </div>
-          )}
-
-          <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>Statement Details</h2>
+          {txnsLoaded && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.875rem', color: '#1d4ed8' }}>✅ {txnInput.split('\n').filter(Boolean).length} transactions loaded from import. Review and click Run.</div>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
               <label style={lbl}>Account</label>
               <select value={accountId} onChange={e => setAccountId(e.target.value)} style={inp}>
                 <option value="">Select account...</option>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                {accounts.filter(a => a.type==='asset'||a.type==='liability').map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              <div>
-                <label style={lbl}>Period Start</label>
-                <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} style={inp} />
-              </div>
-              <div>
-                <label style={lbl}>Period End</label>
-                <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} style={inp} />
-              </div>
+              <div><label style={lbl}>Period Start</label><input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} style={inp} /></div>
+              <div><label style={lbl}>Period End</label><input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} style={inp} /></div>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={lbl}>Opening Balance ($)</label>
-              <input type="number" step="0.01" value={openingBalance} onChange={e => setOpeningBalance(e.target.value)} placeholder="0.00" style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Closing Balance ($)</label>
-              <input type="number" step="0.01" value={closingBalance} onChange={e => setClosingBalance(e.target.value)} placeholder="0.00" style={inp} />
-            </div>
+            <div><label style={lbl}>Opening Balance ($)</label><input type="number" step="0.01" value={openingBalance} onChange={e => setOpeningBalance(e.target.value)} style={inp} /></div>
+            <div><label style={lbl}>Closing Balance ($)</label><input type="number" step="0.01" value={closingBalance} onChange={e => setClosingBalance(e.target.value)} style={inp} /></div>
           </div>
-
           <div style={{ marginBottom: '1rem' }}>
-            <label style={lbl}>
-              Statement Transactions
-              {txnsLoaded && <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: '0.5rem' }}>✅ Auto-loaded from import ({parseTxns().length} txns)</span>}
-              {!txnsLoaded && <span style={{ color: '#6b7280', fontWeight: 400 }}> — one per line: Description | Date | Amount | debit/credit</span>}
-            </label>
-            {loadingTxns
-              ? <div style={{ padding: '1rem', color: '#6b7280', fontSize: '0.875rem' }}>Loading transactions...</div>
-              : <textarea value={txnInput} onChange={e => setTxnInput(e.target.value)} rows={10}
-                  placeholder={"PAYROLL DEPOSIT|2025-12-30|2500.00|credit\nWALMART|2025-12-31|87.45|debit"}
-                  style={{ ...inp, fontFamily: 'monospace', fontSize: '0.8rem' }} />
-            }
+            <label style={lbl}>Transactions {txnsLoaded && <span style={{ color: '#22c55e' }}>✅ Auto-loaded</span>}</label>
+            {loadingTxns ? <div style={{ padding: '1rem', color: '#6b7280' }}>Loading...</div> : <textarea value={txnInput} onChange={e => setTxnInput(e.target.value)} rows={8} style={{ ...inp, fontFamily: 'monospace', fontSize: '0.8rem' }} />}
           </div>
-
           {error && <p style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</p>}
-
-          <button onClick={runReconcile} disabled={loading || !accountId || loadingTxns}
-            style={{ background: loading || !accountId ? '#9ca3af' : '#1d4ed8', color: 'white', padding: '0.625rem 1.5rem', borderRadius: '6px', border: 'none', cursor: loading || !accountId ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+          <button onClick={runReconcile} disabled={loading || !accountId} style={{ background: !accountId ? '#9ca3af' : '#1d4ed8', color: 'white', padding: '0.625rem 1.5rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
             {loading ? 'Reconciling...' : 'Run Reconciliation'}
           </button>
         </div>
@@ -213,93 +221,52 @@ function ReconciliationForm() {
 
       {result && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
             {[
-              { label: 'Confidence Score', value: `${result.confidenceScore}%`, color: scoreColor(result.confidenceScore) },
-              { label: 'Status', value: result.status.toUpperCase(), color: result.status === 'complete' ? '#22c55e' : '#f59e0b' },
-              { label: 'Difference', value: fmt(Math.abs(result.differenceCents)), color: result.differenceCents === 0 ? '#22c55e' : '#ef4444' },
-              { label: 'Balance Check', value: result.statementBalances ? '✅ Pass' : '❌ Fail', color: result.statementBalances ? '#22c55e' : '#ef4444' },
-            ].map(card => (
-              <div key={card.label} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>{card.label}</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: card.color }}>{card.value}</div>
+              { label: 'Confidence', value: `${result.confidenceScore}%`, color: scoreColor(result.confidenceScore) },
+              { label: 'Status', value: result.status.toUpperCase(), color: result.status==='complete'?'#22c55e':'#f59e0b' },
+              { label: 'Difference', value: fmt2(Math.abs(result.differenceCents)), color: result.differenceCents===0?'#22c55e':'#ef4444' },
+              { label: 'Balance Check', value: result.statementBalances?'✅ Pass':'❌ Fail', color: result.statementBalances?'#22c55e':'#ef4444' },
+            ].map(c => (
+              <div key={c.label} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{c.label}</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: c.color }}>{c.value}</div>
               </div>
             ))}
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-            {[
-              { label: 'Matched', value: result.matchedCount, color: '#22c55e' },
-              { label: 'Unmatched (Statement)', value: result.unmatchedStatementCount, color: '#ef4444' },
-              { label: 'Unmatched (Ledger)', value: result.unmatchedLedgerCount, color: '#f59e0b' },
-            ].map(card => (
-              <div key={card.label} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
-                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>{card.label}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: card.color }}>{card.value}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+            {[{ label: 'Matched', value: result.matchedCount, color: '#22c55e' }, { label: 'Unmatched (Stmt)', value: result.unmatchedStatementCount, color: '#ef4444' }, { label: 'Unmatched (Ledger)', value: result.unmatchedLedgerCount, color: '#f59e0b' }].map(c => (
+              <div key={c.label} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{c.label}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: c.color }}>{c.value}</div>
               </div>
             ))}
           </div>
-
-          {result.suggestions.length > 0 && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontWeight: 600, marginBottom: '0.75rem' }}>💡 Suggestions</h3>
-              {result.suggestions.map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: i < result.suggestions.length-1 ? '1px solid #fde68a' : 'none' }}>
-                  <div>
-                    <span style={{ background: '#fcd34d', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, marginRight: '0.5rem' }}>{s.category.toUpperCase()}</span>
-                    {s.description}
-                  </div>
-                  <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{s.probability}% likely</div>
-                </div>
-              ))}
-            </div>
-          )}
-
           <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
-              {(['all','matched','unmatched','suggestions'] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  style={{ padding: '0.75rem 1.25rem', border: 'none', background: activeTab===tab?'#1d4ed8':'transparent', color: activeTab===tab?'white':'#6b7280', cursor: 'pointer', fontWeight: 500, textTransform: 'capitalize' }}>
-                  {tab} ({tab==='all'?result.items.length:tab==='matched'?result.matchedCount:tab==='unmatched'?result.unmatchedStatementCount+result.unmatchedLedgerCount:result.suggestions.length})
-                </button>
-              ))}
-            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-              <thead>
-                <tr style={{ background: '#f9fafb' }}>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Match</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Statement</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Stmt Amt</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>PFOS Ledger</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>PFOS Amt</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'center' }}>Score</th>
-                </tr>
-              </thead>
+              <thead><tr style={{ background: '#f9fafb' }}>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Match</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Statement</th>
+                <th style={{ padding: '0.75rem', textAlign: 'right' }}>Amt</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Ledger</th>
+                <th style={{ padding: '0.75rem', textAlign: 'center' }}>Score</th>
+              </tr></thead>
               <tbody>
-                {filteredItems.map((item, i) => (
+                {result.items.map((item: any, i: number) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '0.75rem' }}>{MATCH_COLORS[item.matchType]} {item.matchType.replace(/_/g,' ')}</td>
-                    <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.statementDescription || '—'}
-                      {item.statementDate && <div style={{ color: '#9ca3af', fontSize: '0.75rem' }}>{item.statementDate?.slice(0,10)}</div>}
-                    </td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: item.statementDirection==='credit'?'#22c55e':'#ef4444' }}>
-                      {item.statementAmountCents != null ? fmt(item.statementAmountCents) : '—'}
-                    </td>
-                    <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.ledgerDescription || '—'}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right' }}>{item.ledgerAmountCents != null ? fmt(item.ledgerAmountCents) : '—'}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.matchScore > 0 ? <span style={{ color: scoreColor(item.matchScore) }}>{item.matchScore}%</span> : '—'}</td>
+                    <td style={{ padding: '0.75rem' }}>{item.matchType==='exact'?'🟢':item.matchType==='fuzzy'?'🟡':item.matchType==='unmatched_statement'?'🔴':'🟠'} {item.matchType.replace(/_/g,' ')}</td>
+                    <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.statementDescription||'—'}<div style={{ color: '#9ca3af', fontSize: '0.75rem' }}>{item.statementDate?.slice(0,10)}</div></td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', color: item.statementDirection==='credit'?'#22c55e':'#ef4444' }}>{item.statementAmountCents!=null?fmt2(item.statementAmountCents):'—'}</td>
+                    <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.ledgerDescription||'—'}</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>{item.matchScore>0?<span style={{ color: scoreColor(item.matchScore) }}>{item.matchScore}%</span>:'—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
           <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-            <button onClick={() => setResult(null)} style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>
-              ← New Reconciliation
-            </button>
-            <span style={{ color: '#6b7280', fontSize: '0.875rem', alignSelf: 'center' }}>ID: {result.reconciliationId}</span>
+            <button onClick={() => setResult(null)} style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>← New Reconciliation</button>
+            <button onClick={onBack} style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>← All Statements</button>
           </div>
         </div>
       )}
@@ -307,12 +274,8 @@ function ReconciliationForm() {
   );
 }
 
-export default function ReconciliationPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
-      <ReconciliationForm />
-    </Suspense>
-  );
+export default function Page() {
+  return <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}><ReconciliationPage /></Suspense>;
 }
 
 const lbl: React.CSSProperties = { display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem' };
