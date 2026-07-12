@@ -102,7 +102,11 @@ export default function ImportPage() {
         const data = await res.json();
         if (!data.ok) throw new Error(data.error);
         const detected: Detected = data;
-        const matchedAccount = accounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
+        // Auto-match by last4 first, then by institution if needed
+        let matchedAccount = accounts.find(a => a.last4 === detected.accountLast4);
+        if (!matchedAccount && detected.institution) {
+          matchedAccount = accounts.find(a => a.inst === detected.institution);
+        }
         updateFile(item.id, {
           status: 'needs_confirm', detected,
           accountId: matchedAccount?.id ?? '',
