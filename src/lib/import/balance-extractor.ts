@@ -28,11 +28,15 @@ function findAmountOnSameRow(pdf: ExtractedPdf, labelPattern: RegExp): number | 
 
 export function extractBalances(pdf: ExtractedPdf, institution: string): StatementBalances {
   switch (institution) {
-    case 'wells_fargo':
+    case 'wells_fargo': {
+      const t = pdf.items.map(i => i.text).join(' ');
+      const bm = t.match(/beginning balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i);
+      const em = t.match(/ending balance on [\d/]+\s+\$?([\d,]+\.\d{2})/i);
       return {
-        openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i),
-        closingBalanceCents: findAmountOnSameRow(pdf, /ending balance on/i),
+        openingBalanceCents: bm ? Math.round(parseFloat(bm[1].replace(/,/g,'')) * 100) : null,
+        closingBalanceCents: em ? Math.round(parseFloat(em[1].replace(/,/g,'')) * 100) : null,
       };
+    }
     case 'us_bank':
       return {
         openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i) ?? findAmountOnSameRow(pdf, /previous balance/i),
