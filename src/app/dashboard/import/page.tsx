@@ -143,7 +143,7 @@ export default function ImportPage() {
   function reset() { setQueue([]); setBulkDone(false); setActiveId(null); }
 
   function reconcileUrl(result: UploadResult): string {
-    const params = new URLSearchParams({
+    const params = new URLSearchParams({ batchId: result.batchId,
       accountId:   result.accountId,
       periodStart: result.periodStart,
       periodEnd:   result.periodEnd,

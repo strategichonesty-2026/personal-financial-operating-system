@@ -38,21 +38,44 @@ const HARDCODED_ACCOUNTS: Account[] = [
   { id: '8ad3001a-486d-498a-ab5c-c1582915025f', code: '2013', name: 'Citi Costco Visa (4621)', type: 'liability' },
 ];
 
+function txnsToText(txns: StatementTxn[]): string {
+  return txns.map(t => `${t.description}|${t.date}|${(t.amountCents/100).toFixed(2)}|${t.direction}`).join('\n');
+}
+
 function ReconciliationForm() {
   const searchParams = useSearchParams();
   const [accounts] = useState<Account[]>(HARDCODED_ACCOUNTS);
-  const [accountId, setAccountId]       = useState(searchParams.get('accountId') ?? '');
-  const [periodStart, setPeriodStart]   = useState(searchParams.get('periodStart') ?? '');
-  const [periodEnd, setPeriodEnd]       = useState(searchParams.get('periodEnd') ?? '');
+  const [accountId, setAccountId]           = useState(searchParams.get('accountId') ?? '');
+  const [periodStart, setPeriodStart]       = useState(searchParams.get('periodStart') ?? '');
+  const [periodEnd, setPeriodEnd]           = useState(searchParams.get('periodEnd') ?? '');
   const [openingBalance, setOpeningBalance] = useState(searchParams.get('opening') ?? '');
   const [closingBalance, setClosingBalance] = useState(searchParams.get('closing') ?? '');
-  const [txnInput, setTxnInput]         = useState('');
-  const [result, setResult]             = useState<ReconcileResult | null>(null);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState('');
-  const [activeTab, setActiveTab]       = useState<'all'|'matched'|'unmatched'|'suggestions'>('all');
+  const [txnInput, setTxnInput]             = useState('');
+  const [loadingTxns, setLoadingTxns]       = useState(false);
+  const [txnsLoaded, setTxnsLoaded]         = useState(false);
+  const [result, setResult]                 = useState<ReconcileResult | null>(null);
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState('');
+  const [activeTab, setActiveTab]           = useState<'all'|'matched'|'unmatched'|'suggestions'>('all');
 
+  const batchId = searchParams.get('batchId');
   const isPreFilled = !!(searchParams.get('accountId') && searchParams.get('opening') && searchParams.get('closing'));
+
+  // Auto-load transactions from batchId
+  useEffect(() => {
+    if (!batchId) return;
+    setLoadingTxns(true);
+    fetch(`/api/v1/import/batch?batchId=${batchId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok && data.transactions?.length) {
+          setTxnInput(txnsToText(data.transactions));
+          setTxnsLoaded(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingTxns(false));
+  }, [batchId]);
 
   function parseTxns(): StatementTxn[] {
     return txnInput.trim().split('\n').filter(Boolean).map(line => {
@@ -69,9 +92,10 @@ function ReconciliationForm() {
 
   async function runReconcile() {
     setError(''); setResult(null);
-    if (!openingBalance) { setError('Enter the opening balance from your statement.'); return; }
-    if (!closingBalance) { setError('Enter the closing balance from your statement.'); return; }
-    if (!txnInput.trim()) { setError('Enter at least one statement transaction.'); return; }
+    if (!accountId)      { setError('Select an account.'); return; }
+    if (!openingBalance) { setError('Enter the opening balance.'); return; }
+    if (!closingBalance) { setError('Enter the closing balance.'); return; }
+    if (!txnInput.trim()) { setError('No transactions found — import may have staged 0 transactions.'); return; }
     setLoading(true);
     try {
       const txns = parseTxns();
@@ -111,11 +135,17 @@ function ReconciliationForm() {
 
       {!result && (
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '1.5rem', marginBottom: '2rem' }}>
+
           {isPreFilled && (
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.875rem', color: '#1d4ed8' }}>
-              ✅ Account, period, and balances pre-filled from your import. Just add the transaction list below and click Run.
+              {loadingTxns
+                ? '⏳ Loading transactions from import...'
+                : txnsLoaded
+                  ? `✅ Ready — ${parseTxns().length} transactions loaded from import. Review and click Run.`
+                  : '✅ Account, period, and balances pre-filled. Add transactions below.'}
             </div>
           )}
+
           <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>Statement Details</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
@@ -136,6 +166,7 @@ function ReconciliationForm() {
               </div>
             </div>
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
               <label style={lbl}>Opening Balance ($)</label>
@@ -146,17 +177,24 @@ function ReconciliationForm() {
               <input type="number" step="0.01" value={closingBalance} onChange={e => setClosingBalance(e.target.value)} placeholder="0.00" style={inp} />
             </div>
           </div>
+
           <div style={{ marginBottom: '1rem' }}>
             <label style={lbl}>
               Statement Transactions
-              <span style={{ color: '#6b7280', fontWeight: 400 }}> — one per line: Description | Date | Amount | debit/credit</span>
+              {txnsLoaded && <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: '0.5rem' }}>✅ Auto-loaded from import ({parseTxns().length} txns)</span>}
+              {!txnsLoaded && <span style={{ color: '#6b7280', fontWeight: 400 }}> — one per line: Description | Date | Amount | debit/credit</span>}
             </label>
-            <textarea value={txnInput} onChange={e => setTxnInput(e.target.value)} rows={8}
-              placeholder={"PAYROLL DEPOSIT|2025-12-30|2500.00|credit\nWALMART|2025-12-31|87.45|debit"}
-              style={{ ...inp, fontFamily: 'monospace', fontSize: '0.8rem' }} />
+            {loadingTxns
+              ? <div style={{ padding: '1rem', color: '#6b7280', fontSize: '0.875rem' }}>Loading transactions...</div>
+              : <textarea value={txnInput} onChange={e => setTxnInput(e.target.value)} rows={10}
+                  placeholder={"PAYROLL DEPOSIT|2025-12-30|2500.00|credit\nWALMART|2025-12-31|87.45|debit"}
+                  style={{ ...inp, fontFamily: 'monospace', fontSize: '0.8rem' }} />
+            }
           </div>
+
           {error && <p style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</p>}
-          <button onClick={runReconcile} disabled={loading || !accountId}
+
+          <button onClick={runReconcile} disabled={loading || !accountId || loadingTxns}
             style={{ background: loading || !accountId ? '#9ca3af' : '#1d4ed8', color: 'white', padding: '0.625rem 1.5rem', borderRadius: '6px', border: 'none', cursor: loading || !accountId ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
             {loading ? 'Reconciling...' : 'Run Reconciliation'}
           </button>
@@ -178,6 +216,7 @@ function ReconciliationForm() {
               </div>
             ))}
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
             {[
               { label: 'Matched', value: result.matchedCount, color: '#22c55e' },
@@ -190,6 +229,7 @@ function ReconciliationForm() {
               </div>
             ))}
           </div>
+
           {result.suggestions.length > 0 && (
             <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem' }}>
               <h3 style={{ fontWeight: 600, marginBottom: '0.75rem' }}>💡 Suggestions</h3>
@@ -204,11 +244,12 @@ function ReconciliationForm() {
               ))}
             </div>
           )}
+
           <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
               {(['all','matched','unmatched','suggestions'] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  style={{ padding: '0.75rem 1.25rem', border: 'none', background: activeTab === tab ? '#1d4ed8' : 'transparent', color: activeTab === tab ? 'white' : '#6b7280', cursor: 'pointer', fontWeight: 500, textTransform: 'capitalize' }}>
+                  style={{ padding: '0.75rem 1.25rem', border: 'none', background: activeTab===tab?'#1d4ed8':'transparent', color: activeTab===tab?'white':'#6b7280', cursor: 'pointer', fontWeight: 500, textTransform: 'capitalize' }}>
                   {tab} ({tab==='all'?result.items.length:tab==='matched'?result.matchedCount:tab==='unmatched'?result.unmatchedStatementCount+result.unmatchedLedgerCount:result.suggestions.length})
                 </button>
               ))}
@@ -243,6 +284,7 @@ function ReconciliationForm() {
               </tbody>
             </table>
           </div>
+
           <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
             <button onClick={() => setResult(null)} style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>
               ← New Reconciliation
