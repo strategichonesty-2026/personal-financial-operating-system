@@ -17,7 +17,7 @@ export async function GET() {
     const txnCount = await db.select({ count: sql<number>`count(*)` })
       .from(stagedTransactions).where(eq(stagedTransactions.batchId, b.id));
     const recon = await db.select().from(reconciliations)
-      .where(eq(reconciliations.accountId, b.accountId))
+      .where(eq(reconciliations.accountId, b.accountId ?? ''))
       .orderBy(desc(reconciliations.createdAt)).limit(1);
     return {
       id: b.id, filename: b.filename, institution: b.institution,
