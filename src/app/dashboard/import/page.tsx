@@ -85,6 +85,21 @@ export default function ImportPage() {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     setBulkDone(false);
+    // Ensure accounts are loaded before detection runs
+    let localAccounts = accounts;
+    if (accounts.length === 0) {
+      try {
+        const r = await fetch('/api/v1/accounts');
+        const d = await r.json();
+        if (d.data?.accounts) {
+          const opts = (d.data.accounts as Array<{id:string;name:string;accountRef:string|null;institution:string|null;type:string;code:string}>)
+            .filter(a => a.type === 'asset' || a.type === 'liability')
+            .map(a => ({ id: a.id, label: a.accountRef ? `${a.name} ****${a.accountRef}` : a.name, last4: a.accountRef, inst: instKeyFromDb(a.institution) }));
+          setAccounts(opts);
+          localAccounts = opts;
+        }
+      } catch {}
+    }
     const newItems: QueuedFile[] = files.map(file => ({
       id: crypto.randomUUID(), file, status: 'queued' as FileStatus,
       detected: null, accountId: '', institution: '',
@@ -104,8 +119,8 @@ export default function ImportPage() {
         if (!data.ok) throw new Error(data.error);
         const detected: Detected = data;
         // Auto-match by institution + last4 (most specific), then last4 only
-        let matchedAccount = accounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
-        if (!matchedAccount) matchedAccount = accounts.find(a => a.last4 === detected.accountLast4);
+        let matchedAccount = localAccounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
+        if (!matchedAccount) matchedAccount = localAccounts.find(a => a.last4 === detected.accountLast4);
         updateFile(item.id, {
           status: 'needs_confirm', detected,
           accountId: matchedAccount?.id ?? '',
