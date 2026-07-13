@@ -33,7 +33,7 @@ function findAmountOnSameRow(pdf: ExtractedPdf, labelPattern: RegExp): number | 
   return null;
 }
 
-export function extractBalances(pdf: ExtractedPdf, institution: string): StatementBalances {
+export function extractBalances(pdf: ExtractedPdf, institution: string, filename: string = ''): StatementBalances {
   switch (institution) {
     case 'wells_fargo':
       return {
@@ -74,11 +74,37 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
         openingBalanceCents: findAmountOnSameRow(pdf, /^previous$/i) ?? findAmountOnSameRow(pdf, /previous balance/i),
         closingBalanceCents: findAmountOnSameRow(pdf, /^new balance$/i) ?? findAmountOnSameRow(pdf, /new balance/i),
       };
-    case 'bofa':
+    case 'bofa': {
+      // BofA combined PDF has multiple accounts. Find balances scoped to the
+      // correct account section by looking between account number headers.
+      // Account number appears as "Account number: XXXX XXXX XXXX" in header.
+      // Find the section for this account by matching last4 in the account number text.
+      const last4 = filename.match(/(\d{4})/)?.[1] ?? '';
+      
+      // Find all "Account number:" header positions
+      const acctHeaders = pdf.items
+        .map((item, idx) => ({ item, idx }))
+        .filter(({ item }) => /account number:/i.test(item.text));
+
+      // Find which header matches our last4
+      const ourHeaderIdx = acctHeaders.findIndex(({ item }) => item.text.includes(last4));
+      
+      if (ourHeaderIdx >= 0) {
+        const startIdx = acctHeaders[ourHeaderIdx]!.idx;
+        const endIdx   = acctHeaders[ourHeaderIdx + 1]?.idx ?? pdf.items.length;
+        const sectionItems = pdf.items.slice(startIdx, endIdx);
+        const sectionPdf = { ...pdf, items: sectionItems };
+        return {
+          openingBalanceCents: findAmountOnSameRow(sectionPdf, /beginning balance/i),
+          closingBalanceCents: findAmountOnSameRow(sectionPdf, /ending balance/i),
+        };
+      }
+      // CC statements — use previous/new balance
       return {
-        openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i),
-        closingBalanceCents: findAmountOnSameRow(pdf, /ending balance/i),
+        openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
+        closingBalanceCents: findAmountOnSameRow(pdf, /new balance total/i),
       };
+    }
     default:
       return { openingBalanceCents: null, closingBalanceCents: null };
   }

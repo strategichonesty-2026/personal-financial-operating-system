@@ -82,7 +82,7 @@ export async function runImportPipeline(
     const transfersFound = withTransfers.filter(i => i.transferCandidate).length;
 
     // Extract opening/closing balances from PDF text
-    const balances = extractBalances(extracted, institution);
+    const balances = extractBalances(extracted, institution, filename);
 
     // Use extracted period dates from PDF; fall back to filename year only
     const filenameYear = filename.match(/20(\d{2})/)?.[0] ?? String(statementYear);
