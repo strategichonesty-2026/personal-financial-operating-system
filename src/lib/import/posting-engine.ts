@@ -299,5 +299,13 @@ export async function postStagedTransactions(
     }
   }
 
+  // Update batch status to 'posted' if all transactions are now posted
+  if (result.posted > 0) {
+    const { importBatches } = await import('@/lib/db/schema/import-batches');
+    await db.update(importBatches)
+      .set({ status: 'posted' })
+      .where(eq(importBatches.id, batchId));
+  }
+
   return result;
 }
