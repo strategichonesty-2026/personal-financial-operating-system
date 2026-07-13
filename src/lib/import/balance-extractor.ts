@@ -22,6 +22,7 @@ function findAmountOnSameRow(pdf: ExtractedPdf, labelPattern: RegExp): number | 
     i.x > labelItem.x
   );
   for (const item of sameRow.sort((a,b) => a.x - b.x)) {
+    if (item.text.trim() === '$') continue; // skip standalone $ sign
     const val = parseDollar(item.text);
     if (val !== null) return val;
   }

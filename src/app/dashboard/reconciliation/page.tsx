@@ -45,6 +45,42 @@ function ReconciliationPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [reconRunning, setReconRunning] = useState<string | null>(null);
+  const [postReconRunning, setPostReconRunning] = useState(false);
+  const [postReconResult, setPostReconResult] = useState<string | null>(null);
+
+  async function handlePostAndReconcileAll() {
+    setPostReconRunning(true);
+    setPostReconResult(null);
+    try {
+      // Step 1: Post all pending batches
+      const batchRes = await fetch('/api/v1/import/batches');
+      const batchData = await batchRes.json();
+      const pending = (batchData.batches ?? []).filter((b: any) => b.pendingCount > 0);
+      for (const batch of pending) {
+        await fetch('/api/v1/import/post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batchId: batch.id }),
+        });
+      }
+      // Step 2: Reconcile all
+      const reconRes = await fetch('/api/v1/reconcile-all', { method: 'POST' });
+      const reconData = await reconRes.json();
+      if (reconData.ok) {
+        setPostReconResult(`${pending.length} batches posted · ${reconData.reconciled} reconciled · ${reconData.needsReview} need review`);
+      } else {
+        setPostReconResult('Error: ' + reconData.error);
+      }
+      // Refresh batches
+      fetch('/api/v1/import/batches').then(r => r.json()).then(d => {
+        if (d.batches) setBatches(dedupBatches(d.batches));
+      });
+    } catch (e: any) {
+      setPostReconResult('Error: ' + e.message);
+    } finally {
+      setPostReconRunning(false);
+    }
+  }
   const [view, setView] = useState<'list' | 'detail'>('list');
 
   const batchId = searchParams.get('batchId');
@@ -52,7 +88,7 @@ function ReconciliationPage() {
   useEffect(() => {
     if (batchId) { setView('detail'); return; }
     fetch('/api/v1/import/batches').then(r => r.json()).then(d => {
-      if (d.ok) setBatches(dedupBatches(d.batches));
+      if (d.batches) setBatches(dedupBatches(d.batches));
     }).finally(() => setLoading(false));
     fetch('/api/v1/accounts').then(r => r.json()).then(d => {
       if (d.data?.accounts) setAccounts(d.data.accounts);
@@ -90,6 +126,16 @@ function ReconciliationPage() {
           <h1 style={{ fontSize: '1.8rem', color: '#2E4057', marginBottom: '0.25rem' }}>Bank Reconciliation</h1>
           <p style={{ color: '#666' }}>Review and reconcile all imported statements</p>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {postReconResult && <span style={{ fontSize: '0.85rem', color: '#2E7D32', fontWeight: 600 }}>✓ {postReconResult}</span>}
+          <button
+            onClick={handlePostAndReconcileAll}
+            disabled={postReconRunning}
+            style={{ background: '#2E4057', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: postReconRunning ? 0.6 : 1 }}
+          >
+            {postReconRunning ? 'Working…' : '⚡ Post & Reconcile All'}
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -123,7 +169,7 @@ function ReconciliationPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#1f2937' }}>{batch.filename}</div>
                     <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>
-                      {batch.txnCount} transactions · {new Date(batch.createdAt).toLocaleDateString()}
+                      {batch.txnCount} transactions · {batch.periodStart ?? 'No period'}
                     </div>
                   </div>
                   <div>{statusBadge(batch)}</div>

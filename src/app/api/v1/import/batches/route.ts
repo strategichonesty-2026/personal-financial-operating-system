@@ -48,19 +48,38 @@ export async function GET() {
     return m2 ? m2[1] : '????';
   }
 
+  // Get reconciliation status for each batch
+  const { reconciliations } = await import('@/lib/db/schema/reconciliations');
+  const reconRecords = await db.select().from(reconciliations);
+  // Match by accountId + period date (first 10 chars of periodStart)
+  const reconMap: Record<string, typeof reconRecords[0]> = {};
+  for (const r of reconRecords) {
+    const ps = r.periodStart instanceof Date ? r.periodStart.toISOString() : String(r.periodStart);
+    const dateKey = r.accountId + '_' + ps.slice(0, 10);
+    reconMap[dateKey] = r;
+  }
+
   const enriched = batches.map(b => {
     const c = countMap[b.id] ?? { pending: 0, posted: 0, duplicate: 0 };
+    const reconKey = (b.accountId ?? '') + '_' + (b.periodStart ?? '').slice(0, 10);
+    const recon = reconMap[reconKey] ?? null;
     return {
       id: b.id,
       filename: b.filename,
       institution: b.institution,
+      accountId: b.accountId,
       accountRef: extractLast4(b.accountName),
       periodStart: b.periodStart,
       periodEnd: b.periodEnd,
       status: b.status,
+      createdAt: b.createdAt,
       transactionCount: c.pending + c.posted + c.duplicate,
+      txnCount: c.pending + c.posted + c.duplicate,
       pendingCount: c.pending,
       postedCount: c.posted,
+      openingBalanceCents: b.openingBalanceCents,
+      closingBalanceCents: b.closingBalanceCents,
+      reconciliation: recon ? { status: recon.status, differenceCents: recon.differenceCents, confidenceScore: recon.confidenceScore, createdAt: recon.reconciledAt } : null,
     };
   });
 

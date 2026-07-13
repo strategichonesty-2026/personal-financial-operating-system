@@ -65,27 +65,7 @@ export default function ReviewPage() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [postingAll, setPostingAll] = useState(false);
   const [postAllResult, setPostAllResult] = useState<string | null>(null);
-  const [reconcilingAll, setReconcilingAll] = useState(false);
-  const [reconcileAllResult, setReconcileAllResult] = useState<string | null>(null);
 
-  async function handleReconcileAll() {
-    setReconcilingAll(true);
-    setReconcileAllResult(null);
-    try {
-      const res = await fetch('/api/v1/reconcile-all', { method: 'POST' });
-      const data = await res.json();
-      if (data.ok) {
-        setReconcileAllResult(`${data.reconciled} reconciled, ${data.needsReview} need review`);
-        await fetchBatches();
-      } else {
-        setReconcileAllResult('Error: ' + data.error);
-      }
-    } catch (e: any) {
-      setReconcileAllResult('Error: ' + e.message);
-    } finally {
-      setReconcilingAll(false);
-    }
-  }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { fetchBatches(); }, []);
@@ -98,12 +78,18 @@ export default function ReviewPage() {
       const data = await res.json();
       const b = data.batches ?? [];
       setBatches(b);
-      // Auto-expand institutions with pending work
+      // Auto-expand institutions with pending work, collapse completed ones
       const toExpand: Record<string, boolean> = {};
+      const byInst: Record<string, typeof b> = {};
       for (const batch of b) {
-        if (batch.pendingCount > 0 || batch.status === 'posted') {
-          toExpand[batch.institution] = true;
-        }
+        if (!byInst[batch.institution]) byInst[batch.institution] = [];
+        byInst[batch.institution].push(batch);
+      }
+      for (const [inst, batches] of Object.entries(byInst)) {
+        const hasPending = batches.some(x => x.pendingCount > 0 || x.status === 'posted');
+        const allComplete = batches.every(x => (x.status === 'reconciled' || x.status === 'done') && x.pendingCount === 0);
+        if (hasPending) toExpand[inst] = true;
+        if (allComplete) toExpand[inst] = false;
       }
       setExpanded(prev => ({ ...prev, ...toExpand }));
     } catch (e: any) {
@@ -176,16 +162,6 @@ export default function ReviewPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {postAllResult && <span style={{ color: '#2E7D32', fontSize: 13, fontWeight: 600 }}>✓ {postAllResult}</span>}
-          {batches.some(b => b.status === 'posted') && (
-            <button
-              onClick={handleReconcileAll}
-              disabled={reconcilingAll}
-              style={{ background: '#2E7D32', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: reconcilingAll ? 0.6 : 1 }}
-            >
-              {reconcilingAll ? 'Reconciling…' : 'Reconcile All'}
-            </button>
-          )}
-          {reconcileAllResult && <span style={{ color: '#1565C0', fontSize: 13, fontWeight: 600 }}>{reconcileAllResult}</span>}
           {hasPending && (
             <button
               onClick={handlePostAllInstitutions}
@@ -206,6 +182,7 @@ export default function ReviewPage() {
           const label = INSTITUTION_LABELS[institution] ?? institution;
           const isExpanded = expanded[institution] ?? false;
           const needsAction = instBatches.some(b => b.pendingCount > 0 || b.status === 'posted');
+          const allDone = instBatches.every(b => b.status === 'reconciled' || b.status === 'done' && b.pendingCount === 0);
 
           // Group by accountRef within institution
           const byAccount: Record<string, Batch[]> = {};
@@ -219,7 +196,7 @@ export default function ReviewPage() {
             <div key={institution} style={{ background: '#fff', borderRadius: 16, border: '1px solid #E8E8E8', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               {/* Institution Header */}
               <button
-                onClick={() => setExpanded(prev => ({ ...prev, [institution]: !isExpanded }))}
+                onClick={() => setExpanded(prev => ({ ...prev, [institution]: allDone ? !isExpanded : !isExpanded }))}
                 style={{ width: '100%', background: 'none', border: 'none', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', textAlign: 'left' }}
               >
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: colors.bg, color: colors.text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>

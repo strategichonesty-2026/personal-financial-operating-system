@@ -156,10 +156,15 @@ export async function extractPdfText(
     if (!periodStart || !periodEnd) {
       const m = text.match(/(\w+ \d+)\s*-\s*(\w+ \d+,\s*\d{4})/);
       if (m) {
-        const endStr  = m[2] ?? '';
-        const endYear = endStr.match(/\d{4}/)?.[0] ?? '';
-        periodStart   = parseMonthDayYear(`${m[1] ?? ''}, ${endYear}`);
-        periodEnd     = parseMonthDayYear(endStr);
+        const endStr   = m[2] ?? '';
+        const endYear  = parseInt(endStr.match(/\d{4}/)?.[0] ?? '0');
+        const startStr = m[1] ?? '';
+        const startMonth = startStr.match(/^(\w+)/)?.[1]?.toLowerCase() ?? '';
+        // If start month is later in year than end month, start is prior year
+        const lateMonths = ['july','august','september','october','november','december'];
+        const startYear = lateMonths.includes(startMonth) ? endYear - 1 : endYear;
+        periodStart = parseMonthDayYear(`${startStr}, ${startYear}`);
+        periodEnd   = parseMonthDayYear(endStr);
       }
     }
 
