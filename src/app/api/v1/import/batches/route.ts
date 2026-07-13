@@ -1,35 +1,68 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/lib/db';
-import { importBatches, reconciliations, stagedTransactions } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const batches = await db.select().from(importBatches)
-    .where(eq(importBatches.userId, userId))
-    .orderBy(desc(importBatches.createdAt))
-    .limit(50);
+  const { db } = await import('@/lib/db');
+  const { importBatches } = await import('@/lib/db/schema/import-batches');
+  const { stagedTransactions } = await import('@/lib/db/schema/staged-transactions');
+  const { accounts } = await import('@/lib/db/schema/accounts');
+  const { eq, count } = await import('drizzle-orm');
 
-  const batchesWithMeta = await Promise.all(batches.map(async (b) => {
-    const txnCount = await db.select({ count: sql<number>`count(*)` })
-      .from(stagedTransactions).where(eq(stagedTransactions.batchId, b.id));
-    const recon = await db.select().from(reconciliations)
-      .where(eq(reconciliations.accountId, b.accountId ?? ''))
-      .orderBy(desc(reconciliations.createdAt)).limit(1);
+  const batches = await db
+    .select({
+      id: importBatches.id,
+      filename: importBatches.filename,
+      institution: importBatches.institution,
+      accountId: importBatches.accountId,
+      accountName: accounts.name,
+      periodStart: importBatches.periodStart,
+      periodEnd: importBatches.periodEnd,
+      status: importBatches.status,
+    })
+    .from(importBatches)
+    .leftJoin(accounts, eq(importBatches.accountId, accounts.id))
+    .where(eq(importBatches.userId, userId));
+
+  const counts = await db
+    .select({ batchId: stagedTransactions.batchId, status: stagedTransactions.status, cnt: count() })
+    .from(stagedTransactions)
+    .groupBy(stagedTransactions.batchId, stagedTransactions.status);
+
+  const countMap: Record<string, { pending: number; posted: number; duplicate: number }> = {};
+  for (const row of counts) {
+    if (!countMap[row.batchId]) countMap[row.batchId] = { pending: 0, posted: 0, duplicate: 0 };
+    if (row.status === 'pending') countMap[row.batchId].pending = Number(row.cnt);
+    if (row.status === 'posted') countMap[row.batchId].posted = Number(row.cnt);
+    if (row.status === 'duplicate') countMap[row.batchId].duplicate = Number(row.cnt);
+  }
+
+  // Extract last4 from account name e.g. "Wells Fargo Checking (4184)" -> "4184"
+  function extractLast4(name: string | null): string {
+    if (!name) return '????';
+    const m1 = name.match(/\((\d{4})\)/);
+    if (m1) return m1[1];
+    const m2 = name.match(/(\d{4})$/);
+    return m2 ? m2[1] : '????';
+  }
+
+  const enriched = batches.map(b => {
+    const c = countMap[b.id] ?? { pending: 0, posted: 0, duplicate: 0 };
     return {
-      id: b.id, filename: b.filename, institution: b.institution,
-      accountId: b.accountId, status: b.status, createdAt: b.createdAt,
-      txnCount: Number(txnCount[0]?.count ?? 0),
-      openingBalanceCents: b.openingBalanceCents,
-      closingBalanceCents: b.closingBalanceCents,
+      id: b.id,
+      filename: b.filename,
+      institution: b.institution,
+      accountRef: extractLast4(b.accountName),
       periodStart: b.periodStart,
       periodEnd: b.periodEnd,
-      reconciliation: recon[0] ?? null,
+      status: b.status,
+      transactionCount: c.pending + c.posted + c.duplicate,
+      pendingCount: c.pending,
+      postedCount: c.posted,
     };
-  }));
+  });
 
-  return NextResponse.json({ ok: true, batches: batchesWithMeta });
+  return NextResponse.json({ batches: enriched });
 }

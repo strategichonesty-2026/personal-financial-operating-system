@@ -7,6 +7,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           <a href="/dashboard" style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem', textDecoration: 'none' }}>PFOS</a>
           <a href="/dashboard/import" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Import</a>
+          <a href="/dashboard/review" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Review</a>
           <a href="/dashboard/reconciliation" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Reconcile</a>
           <a href="/dashboard/reports/trial-balance" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Trial Balance</a>
         </div>
