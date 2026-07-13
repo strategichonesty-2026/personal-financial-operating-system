@@ -143,6 +143,26 @@ export async function extractPdfText(
       }
     }
 
+    // BofA checking/savings: "for December 20, 2025 to January 21, 2026"
+    if (!periodStart || !periodEnd) {
+      const m = text.match(/for\s+(\w+ \d+,\s*\d{4})\s+to\s+(\w+ \d+,\s*\d{4})/i);
+      if (m) {
+        periodStart = parseMonthDayYear(m[1] ?? '');
+        periodEnd   = parseMonthDayYear(m[2] ?? '');
+      }
+    }
+
+    // BofA CC: "December 24 - January 23, 2026"
+    if (!periodStart || !periodEnd) {
+      const m = text.match(/(\w+ \d+)\s*-\s*(\w+ \d+,\s*\d{4})/);
+      if (m) {
+        const endStr  = m[2] ?? '';
+        const endYear = endStr.match(/\d{4}/)?.[0] ?? '';
+        periodStart   = parseMonthDayYear(`${m[1] ?? ''}, ${endYear}`);
+        periodEnd     = parseMonthDayYear(endStr);
+      }
+    }
+
     // WF fallback: "Beginning balance on MM/DD"
     if (!periodStart) {
       const m = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);

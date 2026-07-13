@@ -27,8 +27,8 @@ export interface PipelineResult {
   transfersFound: number;
   openingBalanceCents: number | null;
   closingBalanceCents: number | null;
-  periodStart: string;
-  periodEnd: string;
+  periodStart: string | null;
+  periodEnd: string | null;
   accountId: string;
 }
 
@@ -84,12 +84,10 @@ export async function runImportPipeline(
     // Extract opening/closing balances from PDF text
     const balances = extractBalances(extracted, institution);
 
-    // Use extracted period dates from PDF; fall back to calendar month
-    const periodStart = extracted.meta.periodStart
-      ?? `${statementYear}-${String(statementMonth).padStart(2,'0')}-01`;
-    const lastDay = new Date(statementYear, statementMonth, 0).getDate();
-    const periodEnd = extracted.meta.periodEnd
-      ?? `${statementYear}-${String(statementMonth).padStart(2,'0')}-${lastDay}`;
+    // Use extracted period dates from PDF; fall back to filename year only
+    const filenameYear = filename.match(/20(\d{2})/)?.[0] ?? String(statementYear);
+    const periodStart = extracted.meta.periodStart ?? null;
+    const periodEnd   = extracted.meta.periodEnd   ?? null;
 
     await db.insert(parserAudit).values({
       batchId, userId, institution, filename,

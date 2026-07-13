@@ -256,18 +256,7 @@ export default function ImportPage() {
                         {accounts.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
                       </select>
                     </div>
-                    <div>
-                      <label style={labelStyle}>Month</label>
-                      <select value={item.month} onChange={e => updateFile(item.id, { month: Number(e.target.value) })} style={inputStyle}>
-                        {MONTHS.map((m,i) => <option key={m} value={i+1}>{m}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Year</label>
-                      <select value={item.year} onChange={e => updateFile(item.id, { year: Number(e.target.value) })} style={inputStyle}>
-                        {[2024,2025,2026].map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
+
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button onClick={() => handleImportOne(item.id)} disabled={!item.accountId} style={{ ...btnStyle, fontSize: '0.85rem', padding: '0.5rem 1rem', background: item.accountId ? '#2E4057' : '#999' }}>
