@@ -14,6 +14,7 @@ import { filterDuplicates } from './duplicate-detector';
 import { detectTransfers } from './transfer-detector';
 import { writeStagedTransactions } from './writer';
 import { extractBalances } from './balance-extractor';
+import { validateImport } from './validation-engine';
 
 export interface PipelineResult {
   batchId: string;
@@ -29,6 +30,7 @@ export interface PipelineResult {
   closingBalanceCents: number | null;
   periodStart: string | null;
   periodEnd: string | null;
+  validation?: { valid: boolean; warnings: { code: string; message: string; severity: string }[] };
   accountId: string;
 }
 
@@ -84,6 +86,17 @@ export async function runImportPipeline(
     // Extract opening/closing balances from PDF text
     const balances = extractBalances(extracted, institution, filename);
 
+    // Run import validation — catch parser errors early
+    const validation = validateImport({
+      institution,
+      filename,
+      parsed,
+      openingBalanceCents: balances.openingBalanceCents,
+      closingBalanceCents: balances.closingBalanceCents,
+      inserted,
+      duplicates,
+    });
+
     // Use extracted period dates from PDF; fall back to filename year only
     const filenameYear = filename.match(/20(\d{2})/)?.[0] ?? String(statementYear);
     const periodStart = extracted.meta.periodStart ?? null;
@@ -111,7 +124,7 @@ export async function runImportPipeline(
       closingBalanceCents: balances.closingBalanceCents ?? undefined,
       periodStart: periodStart ?? undefined,
       periodEnd:   periodEnd   ?? undefined,
-      status: 'done',
+      status: validation.valid ? 'done' : 'needs_validation',
     }).where(eq(importBatches.id, batchId));
 
     return {
@@ -125,6 +138,7 @@ export async function runImportPipeline(
       openingBalanceCents: balances.openingBalanceCents,
       closingBalanceCents: balances.closingBalanceCents,
       periodStart, periodEnd, accountId,
+      validation: { valid: validation.valid, warnings: validation.warnings },
     };
 
   } catch (err) {
