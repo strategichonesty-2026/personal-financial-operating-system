@@ -70,9 +70,9 @@ export async function extractPdfText(
     const fnMatch = allMatches[allMatches.length - 1];
     let accountLast4 = fnMatch?.[1] ?? null;
 
-    // Fallback: extract last4 from PDF "Account ending XXXX"
+    // Fallback: extract last4 from PDF "Account ending XXXX" or "ending in XXXX"
     if (!accountLast4) {
-      const endingIdx = items.findIndex(i => /^ending$/i.test(i.text.trim()));
+      const endingIdx = items.findIndex(i => /^ending(\s+in)?$/i.test(i.text.trim()));
       if (endingIdx >= 0) {
         const label = items[endingIdx]!;
         const sameRow = items.filter(i =>
@@ -125,6 +125,20 @@ export async function extractPdfText(
           const yr1 = 2000+parseInt(m[3]!), yr2 = 2000+parseInt(m[6]!);
           periodStart = `${yr1}-${m[1]}-${m[2]}`;
           periodEnd   = `${yr2}-${m[4]}-${m[5]}`;
+        }
+      }
+    }
+
+    // Synchrony: "31 Day Billing Cycle from 12/17/2025 to 01/16/2026"
+    if (!periodStart || !periodEnd) {
+      const syncIdx = items.findIndex(i => /billing cycle from/i.test(i.text));
+      if (syncIdx >= 0) {
+        const m = items[syncIdx]!.text.match(/(\d{2}\/\d{2}\/\d{4})\s+to\s+(\d{2}\/\d{2}\/\d{4})/);
+        if (m) {
+          const [sm,sd,sy] = m[1]!.split('/');
+          const [em,ed,ey] = m[2]!.split('/');
+          periodStart = `${sy}-${sm}-${sd}`;
+          periodEnd   = `${ey}-${em}-${ed}`;
         }
       }
     }

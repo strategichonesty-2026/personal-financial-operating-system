@@ -1,11 +1,26 @@
 import type { StatementParser, StatementPeriod, ParsedTransaction } from './types';
 import type { ExtractedPdf } from '../pdf-extractor';
 
+// Synchrony Sam's Club column layout (page 3):
+// Date:        x=38.2  format MM/DD
+// Ref#:        x=72.5  (skip)
+// Description: x=181.7
+// Amount:      x=449-458 (negative = credit/payment)
+
 const COL = {
-  REF_MIN:  68.0, REF_MAX:  80.0,
+  DATE_MIN:  36.0, DATE_MAX:  45.0,
   DESC_MIN: 178.0, DESC_MAX: 445.0,
   AMT_MIN:  445.0, AMT_MAX:  470.0,
 };
+
+const DATE_RE = /^\d{1,2}\/\d{2}$/;
+
+const SKIP = [
+  /^payments$/i, /^purchases$/i, /^other credits$/i,
+  /^transaction detail$/i, /^date$/i, /^description$/i,
+  /^amount$/i, /^fees$/i, /^interest charges$/i,
+  /^reference/i, /^total$/i,
+];
 
 function parseAmount(text: string): number | null {
   const cleaned = text.replace(/[$,]/g, '').trim();
@@ -14,8 +29,7 @@ function parseAmount(text: string): number | null {
 }
 
 function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
-  // Must group by page first — same y on different pages are unrelated rows
-  const sorted = [...items].sort((a,b) => a.page-b.page||b.y-a.y||a.x-b.x);
+  const sorted = [...items].sort((a,b) => a.page-b.page||a.y-b.y||a.x-b.x);
   const rows: typeof items[] = [];
   let cur: typeof items = [], curY: number|null = null, curPage: number|null = null;
   for (const item of sorted) {
@@ -24,107 +38,54 @@ function groupByRow(items: {x:number,y:number,text:string,page:number}[]) {
     const sameRow  = curY===null||Math.abs(item.y-curY)<=3;
     if (samePage && sameRow) {
       cur.push(item);
-      if (curY===null) curY=item.y;
-      if (curPage===null) curPage=item.page;
+      if (curY===null) { curY=item.y; curPage=item.page; }
     } else {
       if (cur.length) rows.push(cur);
       cur=[item]; curY=item.y; curPage=item.page;
     }
   }
-  if(cur.length)rows.push(cur);
+  if (cur.length) rows.push(cur);
   return rows;
 }
 
-// Synchrony PDFs pack multiple refs/descs/amts into single text blocks at the same x.
-// Strategy: split each block by newline, then zip ref lines with desc lines and amt lines.
 export function parseSynchrony(pdf: ExtractedPdf, period: StatementPeriod): ParsedTransaction[] {
   const results: ParsedTransaction[] = [];
   const seen = new Set<string>();
-  const fallbackDate = `${period.year}-${String(period.month).padStart(2,'0')}-01`;
+  const rows = groupByRow(pdf.items);
 
-  // Only process pages that have transaction data (skip cover/legal pages)
-  const txnPages = Array.from(new Set(pdf.items.map(i => i.page))).filter(p => {
-    const pageItems = pdf.items.filter(i => i.page === p);
-    return pageItems.some(i => i.x >= COL.REF_MIN && i.x <= COL.REF_MAX &&
-      /^[A-Z0-9]{10,}/.test((i.text.trim().split('\n')[0]) ?? ''));
-  });
+  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+    const row = rows[rowIdx]!;
 
-  for (const page of txnPages) {
-    const pageItems = pdf.items.filter(i => i.page === page);
+    const dateItem = row.find(i => i.x>=COL.DATE_MIN && i.x<=COL.DATE_MAX && DATE_RE.test(i.text));
+    const amtItem  = row.find(i => i.x>=COL.AMT_MIN  && i.x<=COL.AMT_MAX);
+    const descItems = row.filter(i => i.x>=COL.DESC_MIN && i.x<=COL.DESC_MAX);
 
-    // Get all ref blocks on this page, split by newline
-    const refBlocks = pageItems
-      .filter(i => i.x >= COL.REF_MIN && i.x <= COL.REF_MAX)
-      .sort((a, b) => b.y - a.y);
+    if (!dateItem || !amtItem || !descItems.length) continue;
 
-    // Get all desc blocks, split by newline
-    const descBlocks = pageItems
-      .filter(i => i.x >= COL.DESC_MIN && i.x <= COL.DESC_MAX)
-      .sort((a, b) => b.y - a.y);
+    const desc = descItems.map(i=>i.text).join(' ').trim();
+    if (!desc || desc.length < 2) continue;
+    if (SKIP.some(p => p.test(desc))) continue;
 
-    // Get all amount blocks, split by newline
-    const amtBlocks = pageItems
-      .filter(i => i.x >= COL.AMT_MIN && i.x <= COL.AMT_MAX)
-      .sort((a, b) => b.y - a.y);
+    const amtCents = parseAmount(amtItem.text);
+    if (amtCents === null) continue;
 
-    // Expand multi-line blocks into individual ref entries with their y positions
-    const refs: { ref: string; y: number }[] = [];
-    for (const block of refBlocks) {
-      const lines = block.text.trim().split('\n').map(l => l.trim()).filter(l => /^[A-Z0-9]{10,}$/.test(l));
-      const lineHeight = lines.length > 1 ? 10 : 0;
-      lines.forEach((ref, idx) => refs.push({ ref, y: block.y - idx * lineHeight }));
-    }
+    const [mStr, dStr] = dateItem.text.split('/');
+    const mon = parseInt(mStr??'0'), day = parseInt(dStr??'0');
+    if (!mon || !day) continue;
+    const yr = mon > period.month ? period.year - 1 : period.year;
+    const date = `${yr}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 
-    // Expand desc blocks — skip continuation lines starting with ','
-    const descs: { text: string; y: number }[] = [];
-    for (const block of descBlocks) {
-      const lines = block.text.trim().split('\n').map(l => l.trim());
-      const mainLines = lines.filter(l => !l.startsWith(',') && l.length > 0);
-      const lineHeight = 10;
-      mainLines.forEach((text, idx) => descs.push({ text, y: block.y - idx * lineHeight }));
-    }
+    const key = `${rowIdx}|${date}|${desc}|${Math.abs(amtCents)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-    // Expand amount blocks
-    const amts: { cents: number; y: number }[] = [];
-    for (const block of amtBlocks) {
-      const lines = block.text.trim().split('\n').map(l => l.trim());
-      const lineHeight = 10;
-      lines.forEach((line, idx) => {
-        const parsed = parseAmount(line);
-        if (parsed !== null) amts.push({ cents: parsed, y: block.y - idx * lineHeight });
-      });
-    }
-
-    // Match refs to nearest desc and amt by y proximity
-    for (const ref of refs) {
-      if (!/^[A-Z0-9]{10,}$/.test(ref.ref)) continue;
-
-      const nearestDesc = descs.reduce((best, d) =>
-        Math.abs(d.y - ref.y) < Math.abs(best.y - ref.y) ? d : best,
-        descs[0] ?? { text: '', y: 0 }
-      );
-
-      const nearestAmt = amts.reduce((best, a) =>
-        Math.abs(a.y - ref.y) < Math.abs(best.y - ref.y) ? a : best,
-        amts[0] ?? { cents: 0, y: 0 }
-      );
-
-      if (!nearestDesc?.text || nearestAmt?.cents === undefined) continue;
-      if (Math.abs(nearestAmt.y - ref.y) > 30) continue; // too far
-
-      const key = `${ref.ref}|${nearestDesc.text}|${nearestAmt.cents}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      results.push({
-        date: fallbackDate,
-        rawDescription: nearestDesc.text,
-        amountCents: Math.abs(nearestAmt.cents),
-        direction: nearestAmt.cents < 0 ? 'credit' : 'debit',
-      });
-    }
+    results.push({
+      date,
+      rawDescription: desc,
+      amountCents: Math.abs(amtCents),
+      direction: amtCents < 0 ? 'credit' : 'debit',
+    });
   }
-
   return results;
 }
 
