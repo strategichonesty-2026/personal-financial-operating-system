@@ -20,8 +20,9 @@ const DATE_LONG_RE  = /^\d{2}\/\d{2}\/\d{2}$/;  // Chk: "12/30/25"
 const AMOUNT_RE     = /^-?\d{1,3}(?:,\d{3})*\.\d{2}$/;
 
 function parseAmount(text: string): number | null {
-  const cleaned = text.replace(/[$,]/g, '').trim();
-  if (!AMOUNT_RE.test(cleaned)) return null;
+  const trimmed = text.trim();
+  if (!AMOUNT_RE.test(trimmed)) return null;
+  const cleaned = trimmed.replace(/[$,]/g, '');
   return Math.round(parseFloat(cleaned) * 100);
 }
 
@@ -115,11 +116,11 @@ function parseCheckingOrSavings(
     const dateText = dateItems[0]?.text ?? '';
     if (!DATE_LONG_RE.test(dateText)) continue;
 
-    const amtRaw = amtItems.map(i => i.text.replace(/[$,]/g, '')).find(t => AMOUNT_RE.test(t));
+    const amtRaw = amtItems.map(i => i.text.trim()).find(t => AMOUNT_RE.test(t));
     if (!amtRaw) continue;
 
-    const amtCents = Math.round(parseFloat(amtRaw) * 100);
-    if (amtCents === 0) continue;
+    const amtCents = parseAmount(amtRaw);
+    if (!amtCents || amtCents === 0) continue;
 
     const desc = descItems.map(i => i.text).filter(t => t !== '$').join(' ').trim();
     const date = parseLongDate(dateText, period);

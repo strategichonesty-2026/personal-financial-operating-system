@@ -48,6 +48,9 @@ function StatusPill({ status, pendingCount }: { status: string; pendingCount: nu
   if (status === 'done' || status === 'reconciled') {
     return <span style={{ background: '#E8F5E9', color: '#2E7D32', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>✓ Done</span>;
   }
+  if (status === 'needs_review') {
+    return <span style={{ background: '#FDE8E8', color: '#C62828', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>⚠ Review</span>;
+  }
   if (status === 'posted') {
     return <span style={{ background: '#E3F2FD', color: '#1565C0', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>Posted</span>;
   }
@@ -62,6 +65,27 @@ export default function ReviewPage() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [postingAll, setPostingAll] = useState(false);
   const [postAllResult, setPostAllResult] = useState<string | null>(null);
+  const [reconcilingAll, setReconcilingAll] = useState(false);
+  const [reconcileAllResult, setReconcileAllResult] = useState<string | null>(null);
+
+  async function handleReconcileAll() {
+    setReconcilingAll(true);
+    setReconcileAllResult(null);
+    try {
+      const res = await fetch('/api/v1/reconcile-all', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setReconcileAllResult(`${data.reconciled} reconciled, ${data.needsReview} need review`);
+        await fetchBatches();
+      } else {
+        setReconcileAllResult('Error: ' + data.error);
+      }
+    } catch (e: any) {
+      setReconcileAllResult('Error: ' + e.message);
+    } finally {
+      setReconcilingAll(false);
+    }
+  }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { fetchBatches(); }, []);
@@ -152,6 +176,16 @@ export default function ReviewPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {postAllResult && <span style={{ color: '#2E7D32', fontSize: 13, fontWeight: 600 }}>✓ {postAllResult}</span>}
+          {batches.some(b => b.status === 'posted') && (
+            <button
+              onClick={handleReconcileAll}
+              disabled={reconcilingAll}
+              style={{ background: '#2E7D32', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: reconcilingAll ? 0.6 : 1 }}
+            >
+              {reconcilingAll ? 'Reconciling…' : 'Reconcile All'}
+            </button>
+          )}
+          {reconcileAllResult && <span style={{ color: '#1565C0', fontSize: 13, fontWeight: 600 }}>{reconcileAllResult}</span>}
           {hasPending && (
             <button
               onClick={handlePostAllInstitutions}
