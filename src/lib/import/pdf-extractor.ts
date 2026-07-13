@@ -28,11 +28,25 @@ export interface ExtractedPdf {
   meta: PdfMeta;
 }
 
+const MONTH_MAP: Record<string,string> = {
+  january:'01',february:'02',march:'03',april:'04',may:'05',june:'06',
+  july:'07',august:'08',september:'09',october:'10',november:'11',december:'12',
+  jan:'01',feb:'02',mar:'03',apr:'04',jun:'06',
+  jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12',
+};
+
+function parseMonthDayYear(s: string): string | null {
+  const m = s.match(/^(\w+)\s+(\d{1,2}),?\s*(\d{4})$/);
+  if (!m) return null;
+  const mon = MONTH_MAP[m[1]!.toLowerCase()];
+  if (!mon) return null;
+  return `${m[3]}-${mon}-${m[2]!.padStart(2,'0')}`;
+}
+
 export async function extractPdfText(
   buffer: Buffer,
   filename: string
 ): Promise<ExtractedPdf> {
-  // Write buffer to temp file
   const tmpPath = join(tmpdir(), `pfos-${randomUUID()}.pdf`);
   await writeFile(tmpPath, buffer);
 
@@ -52,21 +66,34 @@ export async function extractPdfText(
     const text = items.map(i => i.text).join(' ');
 
     const allMatches = Array.from(filename.matchAll(/\b(\d{4})\b/g))
-      .filter(m => !['2024','2025','2026','2027'].includes(m[1]??''));
+      .filter(m => !['2024','2025','2026','2027'].includes(m[1]??'')); 
     const fnMatch = allMatches[allMatches.length - 1];
     const accountLast4 = fnMatch?.[1] ?? null;
 
     let periodStart: string | null = null;
     let periodEnd: string | null = null;
-    const beginMatch = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);
-    const endMatch   = text.match(/ending balance on (\d{1,2})\/(\d{1,2})/i);
-    if (beginMatch) {
-      const bm = parseInt(beginMatch[1]??'0'), bd = parseInt(beginMatch[2]??'0');
-      periodStart = `2026-${String(bm).padStart(2,'0')}-${String(bd).padStart(2,'0')}`;
+
+    // US Bank: "Dec 18, 2025 [through] Jan 21, 2026" as separate PDF items
+    const throughIdx = items.findIndex(i => i.text.trim().toLowerCase() === 'through');
+    if (throughIdx > 0) {
+      periodStart = parseMonthDayYear(items[throughIdx - 1]?.text?.trim() ?? '');
+      periodEnd   = parseMonthDayYear(items[throughIdx + 1]?.text?.trim() ?? '');
     }
-    if (endMatch) {
-      const em = parseInt(endMatch[1]??'0'), ed = parseInt(endMatch[2]??'0');
-      periodEnd = `2026-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
+
+    // WF fallback: "Beginning balance on MM/DD"
+    if (!periodStart) {
+      const m = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);
+      if (m) {
+        const bm = parseInt(m[1]??'0'), bd = parseInt(m[2]??'0');
+        periodStart = `2026-${String(bm).padStart(2,'0')}-${String(bd).padStart(2,'0')}`;
+      }
+    }
+    if (!periodEnd) {
+      const m = text.match(/ending balance on (\d{1,2})\/(\d{1,2})/i);
+      if (m) {
+        const em = parseInt(m[1]??'0'), ed = parseInt(m[2]??'0');
+        periodEnd = `2026-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
+      }
     }
 
     const meta: PdfMeta = {

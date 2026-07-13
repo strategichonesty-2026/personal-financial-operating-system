@@ -82,10 +82,12 @@ export async function runImportPipeline(
     // Extract opening/closing balances from PDF text
     const balances = extractBalances(extracted, institution);
 
-    // Compute period start/end ISO strings
-    const periodStart = `${statementYear}-${String(statementMonth).padStart(2,'0')}-01`;
+    // Use extracted period dates from PDF; fall back to calendar month
+    const periodStart = extracted.meta.periodStart
+      ?? `${statementYear}-${String(statementMonth).padStart(2,'0')}-01`;
     const lastDay = new Date(statementYear, statementMonth, 0).getDate();
-    const periodEnd = `${statementYear}-${String(statementMonth).padStart(2,'0')}-${lastDay}`;
+    const periodEnd = extracted.meta.periodEnd
+      ?? `${statementYear}-${String(statementMonth).padStart(2,'0')}-${lastDay}`;
 
     await db.insert(parserAudit).values({
       batchId, userId, institution, filename,
