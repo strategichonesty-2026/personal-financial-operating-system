@@ -64,11 +64,11 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
         openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
         closingBalanceCents: findAmountOnSameRow(pdf, /new balance/i) ?? findAmountOnSameRow(pdf, /statement balance/i),
       };
-    case 'chase':
-      return {
-        openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
-        closingBalanceCents: findAmountOnSameRow(pdf, /new balance/i),
-      };
+    case 'chase': {
+      const opening = findAmountOnSameRow(pdf, /previous balance/i);
+      const closing = findAmountOnSameRow(pdf, /^new balance$/i) ?? findAmountOnSameRow(pdf, /new balance/i);
+      return { openingBalanceCents: opening, closingBalanceCents: closing };
+    }
     case 'citi':
       return {
         openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),

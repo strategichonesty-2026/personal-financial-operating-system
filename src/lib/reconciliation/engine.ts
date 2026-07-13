@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import {
   journalEntries, journalEntryLines,
-  reconciliations, reconciliationItems,
+  reconciliations, reconciliationItems, accounts,
 } from '@/lib/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 
@@ -155,7 +155,16 @@ export async function runReconciliation(input: ReconcileInput): Promise<Reconcil
   // L1
   const statementCreditsCents = statementTransactions.filter(t => t.direction === 'credit').reduce((s,t) => s+t.amountCents, 0);
   const statementDebitsCents  = statementTransactions.filter(t => t.direction === 'debit').reduce((s,t) => s+t.amountCents, 0);
-  const calculatedBalanceCents = openingBalanceCents + statementCreditsCents - statementDebitsCents;
+
+  // Determine account type for correct balance formula
+  const accountRecord = (await db.select().from(accounts).where(eq(accounts.id, accountId)))[0];
+  const isLiability = accountRecord?.type === 'liability';
+
+  // Asset:     Opening + Credits - Debits = Closing
+  // Liability: Opening + Debits - Credits = Closing (purchases increase balance, payments reduce it)
+  const calculatedBalanceCents = isLiability
+    ? openingBalanceCents + statementDebitsCents - statementCreditsCents
+    : openingBalanceCents + statementCreditsCents - statementDebitsCents;
   const differenceCents = calculatedBalanceCents - closingBalanceCents;
 
   // L2 matching

@@ -80,6 +80,22 @@ export async function extractPdfText(
       periodEnd   = parseMonthDayYear(items[throughIdx + 1]?.text?.trim() ?? '');
     }
 
+    // Chase: "Opening/Closing Date  12/26/25 - 01/25/26"
+    if (!periodStart || !periodEnd) {
+      const chaseIdx = items.findIndex(i => /opening\/closing date/i.test(i.text));
+      if (chaseIdx >= 0) {
+        const label = items[chaseIdx]!;
+        const same = items.filter(i => i.page===label.page && Math.abs(i.y-label.y)<=3 && i.x>label.x);
+        const dateRange = same.sort((a,b)=>a.x-b.x)[0]?.text ?? '';
+        const m = dateRange.match(/(\d{2})\/(\d{2})\/(\d{2})\s*-\s*(\d{2})\/(\d{2})\/(\d{2})/);
+        if (m) {
+          const yr1 = 2000+parseInt(m[3]!), yr2 = 2000+parseInt(m[6]!);
+          periodStart = `${yr1}-${m[1]}-${m[2]}`;
+          periodEnd   = `${yr2}-${m[4]}-${m[5]}`;
+        }
+      }
+    }
+
     // WF fallback: "Beginning balance on MM/DD"
     if (!periodStart) {
       const m = text.match(/beginning balance on (\d{1,2})\/(\d{1,2})/i);
