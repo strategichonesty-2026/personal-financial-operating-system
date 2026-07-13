@@ -40,11 +40,25 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
         openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i),
         closingBalanceCents: findAmountOnSameRow(pdf, /ending balance on/i),
       };
-    case 'us_bank':
-      return {
-        openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i) ?? findAmountOnSameRow(pdf, /previous balance/i),
-        closingBalanceCents: findAmountOnSameRow(pdf, /ending balance/i) ?? findAmountOnSameRow(pdf, /new balance/i),
-      };
+    case 'us_bank': {
+      // US Bank: opening on same row as 'Beginning Balance on'
+      // Closing: amount may be on next line after 'Ending Balance on'
+      const opening = findAmountOnSameRow(pdf, /beginning balance on/i);
+      const closingIdx = pdf.items.findIndex(i => /ending balance on/i.test(i.text));
+      let closing: number | null = null;
+      if (closingIdx >= 0) {
+        // Check same row first
+        closing = findAmountOnSameRow(pdf, /ending balance on/i);
+        // If not found or zero, check next 8 items
+        if (!closing) {
+          for (let j = closingIdx + 1; j < Math.min(closingIdx + 8, pdf.items.length); j++) {
+            const val = parseDollar(pdf.items[j]!.text);
+            if (val !== null && val > 0) { closing = val; break; }
+          }
+        }
+      }
+      return { openingBalanceCents: opening, closingBalanceCents: closing };
+    }
     case 'synchrony':
       return {
         openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
