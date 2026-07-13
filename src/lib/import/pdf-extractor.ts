@@ -68,7 +68,20 @@ export async function extractPdfText(
     const allMatches = Array.from(filename.matchAll(/\b(\d{4})\b/g))
       .filter(m => !['2024','2025','2026','2027'].includes(m[1]??'')); 
     const fnMatch = allMatches[allMatches.length - 1];
-    const accountLast4 = fnMatch?.[1] ?? null;
+    let accountLast4 = fnMatch?.[1] ?? null;
+
+    // Fallback: extract last4 from PDF "Account ending XXXX"
+    if (!accountLast4) {
+      const endingIdx = items.findIndex(i => /^ending$/i.test(i.text.trim()));
+      if (endingIdx >= 0) {
+        const label = items[endingIdx]!;
+        const sameRow = items.filter(i =>
+          i.page === label.page && Math.abs(i.y - label.y) <= 3 && i.x > label.x
+        );
+        const last4Item = sameRow.sort((a,b) => a.x-b.x).find(i => /^\d{4}$/.test(i.text.trim()));
+        if (last4Item) accountLast4 = last4Item.text.trim();
+      }
+    }
 
     let periodStart: string | null = null;
     let periodEnd: string | null = null;
@@ -78,6 +91,26 @@ export async function extractPdfText(
     if (throughIdx > 0) {
       periodStart = parseMonthDayYear(items[throughIdx - 1]?.text?.trim() ?? '');
       periodEnd   = parseMonthDayYear(items[throughIdx + 1]?.text?.trim() ?? '');
+    }
+
+    // Citi: "Billing" + "Period:" + "12/03/25-01/02/26" as separate items on same row
+    if (!periodStart || !periodEnd) {
+      const billingIdx = items.findIndex(i => /^billing$/i.test(i.text.trim()));
+      if (billingIdx >= 0) {
+        const label = items[billingIdx]!;
+        // Find date range item on same row
+        const sameRow = items.filter(i =>
+          i.page === label.page && Math.abs(i.y - label.y) <= 3 && i.x > label.x
+        );
+        for (const item of sameRow) {
+          const m = item.text.match(/(\d{2})\/(\d{2})\/(\d{2})[-–](\d{2})\/(\d{2})\/(\d{2})/);
+          if (m) {
+            periodStart = `20${m[3]}-${m[1]}-${m[2]}`;
+            periodEnd   = `20${m[6]}-${m[4]}-${m[5]}`;
+            break;
+          }
+        }
+      }
     }
 
     // Chase: "Opening/Closing Date  12/26/25 - 01/25/26"

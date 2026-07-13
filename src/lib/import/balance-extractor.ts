@@ -71,8 +71,8 @@ export function extractBalances(pdf: ExtractedPdf, institution: string): Stateme
     }
     case 'citi':
       return {
-        openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
-        closingBalanceCents: findAmountOnSameRow(pdf, /new balance/i) ?? findAmountOnSameRow(pdf, /total balance/i),
+        openingBalanceCents: findAmountOnSameRow(pdf, /^previous$/i) ?? findAmountOnSameRow(pdf, /previous balance/i),
+        closingBalanceCents: findAmountOnSameRow(pdf, /^new balance$/i) ?? findAmountOnSameRow(pdf, /new balance/i),
       };
     case 'bofa':
       return {
