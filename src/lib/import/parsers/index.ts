@@ -4,6 +4,7 @@ import { CitiParser }       from './citi';
 import { SynchronyParser }  from './synchrony';
 import { ChaseParser }      from './chase';
 import { USBankParser }     from './us-bank';
+import { parseBofa }        from './bofa';
 
 export const parsers: Record<string, StatementParser> = {
   wells_fargo: WellsFargoParser,
@@ -11,6 +12,7 @@ export const parsers: Record<string, StatementParser> = {
   synchrony:   SynchronyParser,
   chase:       ChaseParser,
   us_bank:     USBankParser,
+  bofa:         { institution: 'bofa', parse: () => [] },
 };
 
 export function getParser(institution: string): StatementParser | null {

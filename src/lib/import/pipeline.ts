@@ -8,6 +8,7 @@ import { parseCiti }       from './parsers/citi';
 import { parseSynchrony }  from './parsers/synchrony';
 import { parseChase }      from './parsers/chase';
 import { parseUSBank }     from './parsers/us-bank';
+import { parseBofa, extractBofaPeriod } from './parsers/bofa';
 import { loadPatterns, normalizeTransaction } from './normalizer';
 import { filterDuplicates } from './duplicate-detector';
 import { detectTransfers } from './transfer-detector';
@@ -58,6 +59,7 @@ export async function runImportPipeline(
     const period = { year: statementYear, month: statementMonth };
     const coordinateParsers: Record<string, typeof parseWellsFargo> = {
       wells_fargo: parseWellsFargo,
+      bofa:         (pdf, period) => parseBofa(pdf, period, filename.match(/(\d{4})/)?.[1]),
       citi:        parseCiti,
       synchrony:   parseSynchrony,
       chase:       parseChase,
