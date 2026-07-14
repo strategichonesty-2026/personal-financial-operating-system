@@ -21,6 +21,8 @@ export async function GET() {
       periodStart: importBatches.periodStart,
       periodEnd: importBatches.periodEnd,
       status: importBatches.status,
+      openingBalanceCents: importBatches.openingBalanceCents,
+      closingBalanceCents: importBatches.closingBalanceCents,
     })
     .from(importBatches)
     .leftJoin(accounts, eq(importBatches.accountId, accounts.id))
