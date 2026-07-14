@@ -34,9 +34,11 @@ export async function GET() {
   const countMap: Record<string, { pending: number; posted: number; duplicate: number }> = {};
   for (const row of counts) {
     if (!countMap[row.batchId]) countMap[row.batchId] = { pending: 0, posted: 0, duplicate: 0 };
-    if (row.status === 'pending') countMap[row.batchId].pending = Number(row.cnt);
-    if (row.status === 'posted') countMap[row.batchId].posted = Number(row.cnt);
-    if (row.status === 'duplicate') countMap[row.batchId].duplicate = Number(row.cnt);
+    const entry = countMap[row.batchId];
+    if (!entry) continue;
+    if (row.status === 'pending') entry.pending = Number(row.cnt);
+    if (row.status === 'posted') entry.posted = Number(row.cnt);
+    if (row.status === 'duplicate') entry.duplicate = Number(row.cnt);
   }
 
   // Extract last4 from account name e.g. "Wells Fargo Checking (4184)" -> "4184"
