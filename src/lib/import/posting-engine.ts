@@ -123,6 +123,19 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /chase credit crd epay/i,       isCCPayment: true, liabilityCode: '2012' },
   { pattern: /citi card online payment/i,    isCCPayment: true, liabilityCode: '2013' },
   { pattern: /wf credit card auto pay/i,     isCCPayment: true, liabilityCode: '2014' },
+// PAYROLL appearing in non-WF accounts
+  { pattern: /wells fargo bank des:payroll/i,                          creditCode: '4011' },
+  // BOA CC 5787 payments
+  { pattern: /online banking payment to crd 5787/i,                    isCCPayment: true, liabilityCode: '2016' },
+  { pattern: /online payment from chk.*5787/i,                         isCCPayment: true, liabilityCode: '2016' },
+  { pattern: /bank of america credit card bill payment/i,              isCCPayment: true, liabilityCode: '2016' },
+  { pattern: /^cc payment$/i,                                          isCCPayment: true, liabilityCode: '2016' },
+  // CPA / PROFESSIONAL FEES
+  { pattern: /zelle payment to santosh timilsina/i,                    debitCode: '6091', creditCode: '1015' },
+  // ZELLE FROM SELF
+  { pattern: /zelle payment from gopu shrestha.*book and promotion/i,  debitCode: '1016', creditCode: '4021' },
+  { pattern: /zelle payment from gopu shrestha.*phone payment/i,       debitCode: '1016', creditCode: '5071' },
+  { pattern: /zelle payment from gopu shrestha.*pay credit card/i,     isTransferIn: true, sourceCode: '1011' },
 { pattern: /electronic withdrawal to wells fargo card/i, isCCPayment: true, liabilityCode: '2024' },
   { pattern: /us bank.*credit card|usbank.*autopay/i,      isCCPayment: true, liabilityCode: '2025' },
   { pattern: /irs treas 310.*tax ref/i,                    creditCode: '4012' },
