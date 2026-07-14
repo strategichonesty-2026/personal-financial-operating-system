@@ -145,6 +145,20 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /zelle from shrestha sujan/i,                          debitCode: '1011', creditCode: '4012' },
   // XUNO ELECTRONIC WITHDRAWAL
   { pattern: /electronic withdrawal to xuno/i,                      debitCode: '6107', creditCode: '1014' },
+  // INTERNAL TRANSFERS BofA CHK→SAV
+  { pattern: /automatic transfer to sav 6951/i,                    isTransfer: true, transferToCode: '1020' },
+  { pattern: /automatic transfer from chk 1961/i,                  isTransferIn: true, sourceCode: '1016' },
+  // GROCERIES
+  { pattern: /costco warehouse/i,                                   debitCode: '5021', creditCode: '2013' },
+  // MEALS & ENTERTAINMENT
+  { pattern: /g-will liquors/i,                                     debitCode: '6112', creditCode: '2016' },
+  { pattern: /red's savoy pizza/i,                                  debitCode: '6112', creditCode: '2016' },
+  // AI & TECH SUBSCRIPTIONS
+  { pattern: /claude\.ai subscription/i,                            debitCode: '6113', creditCode: '2016' },
+  { pattern: /chatgpt|openai/i,                                     debitCode: '6113', creditCode: '2016' },
+  { pattern: /emergent\.sh|emergent emergent/i,                     debitCode: '6113', creditCode: '2016' },
+  // FAMILY EXPENSES
+  { pattern: /zelle to shrestha nepali/i,                           debitCode: '6107', creditCode: '1011' },
   // LIFE INSURANCE
   { pattern: /nylife of arizon/i,                                   debitCode: '6111', creditCode: '1015' },
   // MEALS & ENTERTAINMENT
@@ -189,7 +203,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /bkofamerica mobile.*deposit/i,                      debitCode: '1016', creditCode: '4012' },
   { pattern: /holiday store/i,               debitCode: '6103', creditCode: '1011' },
   { pattern: /pmt to jay lamsal/i,           debitCode: '6091', creditCode: '1011' },
-  { pattern: /zelle to shrestha nepali/i,    debitCode: '6103', creditCode: '1011' },
+
   { pattern: /wfcu direct db/i,              debitCode: '6091', creditCode: '1011' },
   // SYNCHRONY / SAM'S CLUB
   { pattern: /online payment thank you/i,    isCCPayment: true, liabilityCode: '2015' },
