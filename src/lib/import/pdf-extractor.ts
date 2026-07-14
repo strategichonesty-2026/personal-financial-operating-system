@@ -45,7 +45,8 @@ export async function extractPdfText(
 ): Promise<ExtractedPdf> {
   try {
     // Use pdfjs-dist directly (works in both local and Vercel serverless)
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs') as any;
     pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
     const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise;
