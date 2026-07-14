@@ -36,7 +36,8 @@ const ACCOUNT_IDS: Record<string, string> = {
   '2026': '3be070fa-8f94-4e84-8017-42057dce6c34',
   '6113': '43f72adc-d897-4554-a6a7-3498978b28c6',
   '6114': 'eb6ecd5c-e76c-4a3b-b8f8-69a2c6865473',
-  '6115': '25e043d1-f8c0-4f82-bbaf-d4e62dd34f37',  
+  '6115': '25e043d1-f8c0-4f82-bbaf-d4e62dd34f37',
+  '6116': '9450d8a6-f96d-4281-a320-11a17ec57af1',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -117,6 +118,28 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // AMAZON
   { pattern: /amazon\.com/i,                 debitCode: '6081', creditCode: '2012' },
   // MISC PERSONAL
+  // AI & TECH (additional)
+  { pattern: /perplexity/i,                                         debitCode: '6113', creditCode: '2016' },
+  { pattern: /runwayml|runway standard plan/i,                      debitCode: '6113', creditCode: '2014' },
+  { pattern: /predis\.ai/i,                                         debitCode: '6113', creditCode: '2016' },
+  // SUBSCRIPTIONS (additional)
+  { pattern: /mailchimp/i,                                          debitCode: '6035', creditCode: '2014' },
+  { pattern: /sling tv/i,                                           debitCode: '6035', creditCode: '2014' },
+  { pattern: /wmt plus/i,                                           debitCode: '6035', creditCode: '2014' },
+  { pattern: /paypal.*google/i,                                     debitCode: '6035', creditCode: '1015' },
+  // MEDICAL (additional)
+  { pattern: /an adapthealth|adapthealth/i,                         debitCode: '5044', creditCode: '2014' },
+  // MEALS (additional)
+  { pattern: /red cow/i,                                            debitCode: '6112', creditCode: '2014' },
+  { pattern: /skyway wok/i,                                         debitCode: '6112', creditCode: '2014' },
+  { pattern: /chipotle/i,                                           debitCode: '6112', creditCode: '2016' },
+  { pattern: /dragon star oriental/i,                               debitCode: '6112', creditCode: '2014' },
+  // OFFICE & COMMUTE
+  { pattern: /denison parking/i,                                    debitCode: '6116', creditCode: '2016' },
+  // PARTY & GIFTS
+  { pattern: /ck holiday/i,                                         debitCode: '6110', creditCode: '1011' },
+  // HOME IMPROVEMENT (additional)
+  { pattern: /wm supercenter|walmart supercenter/i,                 debitCode: '6108', creditCode: '2016' },
   // GROCERIES on CC (additional stores)
   { pattern: /pooja grocers/i,                                      debitCode: '5021', creditCode: '2014' },
   { pattern: /sun foods inc/i,                                      debitCode: '5021', creditCode: '2014' },
