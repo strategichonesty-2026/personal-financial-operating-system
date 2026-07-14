@@ -149,7 +149,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // AIRBNB INCOME
   { pattern: /electronic deposit from airbnb/i,                     debitCode: '1014', creditCode: '4031' },
   // AI SUBSCRIPTIONS
-  { pattern: /anthropic\/claude|anthropic claude/i,                 debitCode: '6113', creditCode: '2016' },
+  { pattern: /anthropic/i,                                           debitCode: '6113', creditCode: '2016' },
   // FAMILY
   { pattern: /zelle instant pmt to tofunmi/i,                       debitCode: '6107', creditCode: '1011' },
   // OFFICE & COMMUTE
