@@ -30,7 +30,9 @@ const ACCOUNT_IDS: Record<string, string> = {
   '6107': '86ae4a8c-5fd7-478f-a77f-add4fe4524e7',
   '6108': 'eddc466f-14f6-476b-8abb-fffdb231aee1',
   '6109': '1f361e72-9ee7-4a06-ba9c-527fbb03178f',
-  '6110': '6ea69e7e-1c78-4612-bc74-d667989f93bf',  
+  '6110': '6ea69e7e-1c78-4612-bc74-d667989f93bf',
+  '6111': '4741fb55-e4ba-421b-be4d-29abd1e528a3',
+  '6112': '80234fde-9bca-43de-8c82-48b8e3a9f248',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -111,6 +113,32 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // AMAZON
   { pattern: /amazon\.com/i,                 debitCode: '6081', creditCode: '2012' },
   // MISC PERSONAL
+  // LIFE INSURANCE
+  { pattern: /nylife of arizon/i,                                   debitCode: '6111', creditCode: '1015' },
+  // MEALS & ENTERTAINMENT
+  { pattern: /spo\*eggtasticbrunchcafe/i,                           debitCode: '6112', creditCode: '2014' },
+  // PARKING → Personal Travel
+  { pattern: /mac parking reservations/i,                           debitCode: '6106', creditCode: '2014' },
+  // AT&T DEVICE → Phone
+  { pattern: /at&t device\/equip ship/i,                            debitCode: '5071', creditCode: '2014' },
+  // CONNEXUS ENERGY → Utilities
+  { pattern: /electronic withdrawal to connexus energy/i,           debitCode: '5031', creditCode: '1015' },
+  // WALMART → Home Improvement
+  { pattern: /wal-mart/i,                                           debitCode: '6108', creditCode: '2016' },
+  // BOOK PROMOTION
+  { pattern: /bookreverb/i,                                         debitCode: '6109', creditCode: '2016' },
+  { pattern: /amz\*goodreads/i,                                     debitCode: '6109', creditCode: '2016' },
+  // PROFESSIONAL DEVELOPMENT
+  { pattern: /toastmasters/i,                                       debitCode: '6105', creditCode: '2014' },
+  { pattern: /linkedinpre/i,                                        debitCode: '6105', creditCode: '2016' },
+  { pattern: /sp mountain goat sof/i,                               debitCode: '6105', creditCode: '2014' },
+  { pattern: /scrum alliance/i,                                     debitCode: '6105', creditCode: '2016' },
+  // USB CC PAYMENT
+  { pattern: /mobile banking payment to credit card.*0546/i,        isCCPayment: true, liabilityCode: '2025' },
+  // CARDMEMBER SERV (Chase CC payment or donation)
+  { pattern: /electronic withdrawal to cardmember serv/i,           isCCPayment: true, liabilityCode: '2012' },
+  // JAY LAMSAL → Rental/maintenance expense
+  { pattern: /zelle instant pmt to jay lamsal/i,                    debitCode: '6091', creditCode: '1011' },
   // PROFESSIONAL DEVELOPMENT
   { pattern: /zelle payment to gopu shrestha.*resume builder/i,  debitCode: '6105', creditCode: '1016' },
   { pattern: /paypal \*beverlyanne/i,                             debitCode: '6105', creditCode: '2014' },
@@ -128,7 +156,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // MOBILE DEPOSITS (refunds/returns)
   { pattern: /bkofamerica mobile.*deposit/i,                      debitCode: '1016', creditCode: '4012' },
   { pattern: /holiday store/i,               debitCode: '6103', creditCode: '1011' },
-  { pattern: /pmt to jay lamsal/i,           debitCode: '6103', creditCode: '1011' },
+  { pattern: /pmt to jay lamsal/i,           debitCode: '6091', creditCode: '1011' },
   { pattern: /zelle to shrestha nepali/i,    debitCode: '6103', creditCode: '1011' },
   { pattern: /wfcu direct db/i,              debitCode: '6091', creditCode: '1011' },
   // SYNCHRONY / SAM'S CLUB
