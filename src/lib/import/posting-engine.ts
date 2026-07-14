@@ -143,6 +143,10 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /skyway wok/i,                                         debitCode: '6112', creditCode: '2014' },
   { pattern: /chipotle/i,                                           debitCode: '6112', creditCode: '2016' },
   { pattern: /dragon star oriental/i,                               debitCode: '6112', creditCode: '2014' },
+  // HOME EXPENSES (misc artifacts)
+  { pattern: /^402 -10\.00$/i,                                      debitCode: '6103', creditCode: '1016' },
+  // PDF ARTIFACTS
+  { pattern: /^402 -10\.00$/,                                       debitCode: '6108', creditCode: '1016' },
   // ONLINE SHOPPING
   { pattern: /paypal \*justfab/i,                                   debitCode: '6118', creditCode: '2014' },
   { pattern: /paypal \*temu/i,                                      debitCode: '6118', creditCode: '2014' },
