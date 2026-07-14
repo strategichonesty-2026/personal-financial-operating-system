@@ -32,7 +32,11 @@ const ACCOUNT_IDS: Record<string, string> = {
   '6109': '1f361e72-9ee7-4a06-ba9c-527fbb03178f',
   '6110': '6ea69e7e-1c78-4612-bc74-d667989f93bf',
   '6111': '4741fb55-e4ba-421b-be4d-29abd1e528a3',
-  '6112': '80234fde-9bca-43de-8c82-48b8e3a9f248',  
+  '6112': '80234fde-9bca-43de-8c82-48b8e3a9f248',
+  '2026': '3be070fa-8f94-4e84-8017-42057dce6c34',
+  '6113': '43f72adc-d897-4554-a6a7-3498978b28c6',
+  '6114': 'eb6ecd5c-e76c-4a3b-b8f8-69a2c6865473',
+  '6115': '25e043d1-f8c0-4f82-bbaf-d4e62dd34f37',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -113,6 +117,34 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // AMAZON
   { pattern: /amazon\.com/i,                 debitCode: '6081', creditCode: '2012' },
   // MISC PERSONAL
+  // GROCERIES on CC (additional stores)
+  { pattern: /pooja grocers/i,                                      debitCode: '5021', creditCode: '2014' },
+  { pattern: /sun foods inc/i,                                      debitCode: '5021', creditCode: '2014' },
+  { pattern: /cub foods/i,                                          debitCode: '5021', creditCode: '2014' },
+  // MEALS & ENTERTAINMENT (additional)
+  { pattern: /tikka masala grill/i,                                 debitCode: '6112', creditCode: '2016' },
+  { pattern: /great moon buffet/i,                                  debitCode: '6112', creditCode: '2014' },
+  { pattern: /msp holy land/i,                                      debitCode: '6112', creditCode: '2014' },
+  { pattern: /spo\*eggtastic/i,                                     debitCode: '6112', creditCode: '2014' },
+  // AI & TECH SUBSCRIPTIONS
+  { pattern: /pictory\*/i,                                          debitCode: '6113', creditCode: '2014' },
+  { pattern: /heygen technology/i,                                  debitCode: '6113', creditCode: '2014' },
+  // CAR & REGISTRATION
+  { pattern: /gov\*anokalicense/i,                                  debitCode: '6114', creditCode: '2014' },
+  // CAMPING & RECREATION
+  { pattern: /grand marais campground/i,                            debitCode: '6115', creditCode: '2014' },
+  // HOME IMPROVEMENT (additional)
+  { pattern: /menards/i,                                            debitCode: '6108', creditCode: '2014' },
+  // APPLE CARD PAYMENT
+  { pattern: /applecard gsbank des:payment/i,                       isCCPayment: true, liabilityCode: '2026' },
+  // ONLINE SCHEDULED PAYMENT TO BOA CC
+  { pattern: /online scheduled payment to acct# 3463/i,            isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /online scheduled payment to acct# 5787/i,            isCCPayment: true, liabilityCode: '2016' },
+  // ZELLE FROM SUJAN (phone reimbursement)
+  { pattern: /zelle from shrestha sujan.*phone/i,                   debitCode: '1011', creditCode: '5071' },
+  { pattern: /zelle from shrestha sujan/i,                          debitCode: '1011', creditCode: '4012' },
+  // XUNO ELECTRONIC WITHDRAWAL
+  { pattern: /electronic withdrawal to xuno/i,                      debitCode: '6107', creditCode: '1014' },
   // LIFE INSURANCE
   { pattern: /nylife of arizon/i,                                   debitCode: '6111', creditCode: '1015' },
   // MEALS & ENTERTAINMENT
