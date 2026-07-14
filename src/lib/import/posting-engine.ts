@@ -84,6 +84,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // HOUSING
   { pattern: /nsm dbamr.cooper|nsm.*cooper/i,debitCode: '5011', creditCode: '1015' },
   { pattern: /cpenergy|centerpoint/i,        debitCode: '5031', creditCode: '1015' },
+  { pattern: /electronic withdrawal to city of blaine/i, debitCode: '5031', creditCode: '1015' },
   { pattern: /comcast|xfinity/i,             debitCode: '5032', creditCode: '1015' },
   { pattern: /concertfin/i,                  debitCode: '5033', creditCode: '1015' },
   // PHONE
@@ -110,6 +111,8 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /wfcu direct db/i,              debitCode: '6091', creditCode: '1011' },
   // SYNCHRONY / SAM'S CLUB
   { pattern: /online payment thank you/i,    isCCPayment: true, liabilityCode: '2015' },
+  { pattern: /online payment, thank you/i,      isCCPayment: true, liabilityCode: '2013' },
+  { pattern: /automatic payment - thank you/i,   isCCPayment: true, liabilityCode: '2012' },
   { pattern: /sam's club \d+/i,             debitCode: '6081', creditCode: '2015' },
   { pattern: /google.*google one/i,          debitCode: '6035', creditCode: '2015' },
   { pattern: /interest charge/i,             debitCode: '5081', creditCode: '2015' },
