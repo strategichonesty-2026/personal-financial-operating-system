@@ -24,7 +24,13 @@ const ACCOUNT_IDS: Record<string, string> = {
   '2023': '0954bdd3-7e01-46cb-a7f6-e42ea097962f',
 '2024': 'a2640d30-cd24-42d7-a597-9f10b6256abc',
   '2025': 'c4ef492e-95f8-46a0-8605-c3ae12b3f712',
-  '6104': '41f69001-6d60-424b-b96c-0ac4624c3a9e',  
+  '6104': '41f69001-6d60-424b-b96c-0ac4624c3a9e',
+  '6105': '9935c65c-f072-49f8-93b7-554374813e51',
+  '6106': '48f5c6d2-a442-4bcd-bcc2-7f101f5a19e8',
+  '6107': '86ae4a8c-5fd7-478f-a77f-add4fe4524e7',
+  '6108': 'eddc466f-14f6-476b-8abb-fffdb231aee1',
+  '6109': '1f361e72-9ee7-4a06-ba9c-527fbb03178f',
+  '6110': '6ea69e7e-1c78-4612-bc74-d667989f93bf',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -105,6 +111,22 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // AMAZON
   { pattern: /amazon\.com/i,                 debitCode: '6081', creditCode: '2012' },
   // MISC PERSONAL
+  // PROFESSIONAL DEVELOPMENT
+  { pattern: /zelle payment to gopu shrestha.*resume builder/i,  debitCode: '6105', creditCode: '1016' },
+  { pattern: /paypal \*beverlyanne/i,                             debitCode: '6105', creditCode: '2014' },
+  // PERSONAL TRAVEL
+  { pattern: /american air\d+/i,                                  debitCode: '6106', creditCode: '2016' },
+  { pattern: /zelle to laxmi pandey.*camping/i,                   debitCode: '6106', creditCode: '1011' },
+  // FAMILY EXPENSES
+  { pattern: /xuno debit/i,                                       debitCode: '6107', creditCode: '1011' },
+  // HOME IMPROVEMENT
+  { pattern: /the home depot/i,                                   debitCode: '6108', creditCode: '2014' },
+  // BOOK WRITING
+  { pattern: /fiverr/i,                                           debitCode: '6109', creditCode: '2014' },
+  // PARTY GIFT DONATION
+  { pattern: /atm withdrawal holiday store/i,                     debitCode: '6110', creditCode: '1014' },
+  // MOBILE DEPOSITS (refunds/returns)
+  { pattern: /bkofamerica mobile.*deposit/i,                      debitCode: '1016', creditCode: '4012' },
   { pattern: /holiday store/i,               debitCode: '6103', creditCode: '1011' },
   { pattern: /pmt to jay lamsal/i,           debitCode: '6103', creditCode: '1011' },
   { pattern: /zelle to shrestha nepali/i,    debitCode: '6103', creditCode: '1011' },
