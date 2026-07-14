@@ -81,6 +81,15 @@ export async function extractPdfText(
     const fnMatch = allMatches[allMatches.length - 1];
     let accountLast4 = fnMatch?.[1] ?? null;
 
+    // BofA: "Account number: 3940 0087 1961" — last 4 digits
+    if (!accountLast4) {
+      const acctNumItem = items.find(i => /^account number:/i.test(i.text.trim()));
+      if (acctNumItem) {
+        const digits = acctNumItem.text.replace(/\s/g, '').match(/\d{4}$/);
+        if (digits) accountLast4 = digits[0];
+      }
+    }
+
     // Fallback: extract last4 from PDF "Account ending XXXX" or "ending in XXXX"
     if (!accountLast4) {
       const endingIdx = items.findIndex(i => /^ending(\s+in)?$/i.test(i.text.trim()));
