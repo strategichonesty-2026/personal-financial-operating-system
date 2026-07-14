@@ -208,9 +208,9 @@ export async function extractPdfText(
 
 export function detectInstitution(text: string): string | null {
   const t = text.toUpperCase();
+  if (t.includes('BANK OF AMERICA') || t.includes('BANKOFAMERICA'))  return 'bofa';
   if (t.includes('UNI-STATEMENT') || t.includes('800-US BANKS') ||
       t.includes('USBANK') || t.includes('U.S. BANK'))           return 'us_bank';
-  if (t.includes('BANK OF AMERICA'))                              return 'bofa';
   if (t.includes('CITICARDS') || t.includes('COSTCO ANYWHERE VISA')) return 'citi';
   if (t.includes('SYNCHRONY'))                                    return 'synchrony';
   if (t.includes('WELLS FARGO'))                                  return 'wells_fargo';
