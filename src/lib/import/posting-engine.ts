@@ -128,7 +128,12 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // BOA CC 5787 payments
   { pattern: /online banking payment to crd 5787/i,                    isCCPayment: true, liabilityCode: '2016' },
   { pattern: /online payment from chk.*5787/i,                         isCCPayment: true, liabilityCode: '2016' },
-  { pattern: /bank of america credit card bill payment/i,              isCCPayment: true, liabilityCode: '2016' },
+ { pattern: /online banking payment to crd 3463/i,           isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /online banking payment to crd 9292/i,           isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /online payment from chk.*3463/i,                isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /online payment from chk.*9292/i,                isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /zelle payment from gopu shrestha.*cc payment/i, isTransferIn: true, sourceCode: '1011' }, 
+ { pattern: /bank of america credit card bill payment/i,              isCCPayment: true, liabilityCode: '2016' },
   { pattern: /^cc payment$/i,                                          isCCPayment: true, liabilityCode: '2016' },
   // CPA / PROFESSIONAL FEES
   { pattern: /zelle payment to santosh timilsina/i,                    debitCode: '6091', creditCode: '1015' },

@@ -133,7 +133,7 @@ function ReconciliationPage() {
             disabled={postReconRunning}
             style={{ background: '#2E4057', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: postReconRunning ? 0.6 : 1 }}
           >
-            {postReconRunning ? 'Working…' : '⚡ Post & Reconcile All'}
+            {postReconRunning ? 'Working…' : '⚡ Reconcile All'}
           </button>
         </div>
       </div>
