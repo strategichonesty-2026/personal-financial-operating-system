@@ -90,7 +90,8 @@ function parseCheckingOrSavings(
     // Section markers — skip the Account Summary lines (y < 350)
     // Real transaction section headers appear after the summary block
     if (rowText.includes('Deposits and other additions') ||
-        rowText.includes('Withdrawals and other subtractions')) {
+        rowText.includes('Withdrawals and other subtractions') ||
+        rowText.includes('Checks')) {
       const rowY = row[0]?.y ?? 0;
       if (rowY > 350) {
         inTransactions = true;
