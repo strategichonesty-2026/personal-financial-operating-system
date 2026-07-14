@@ -189,7 +189,7 @@ function parseCreditCard(
     const neg = amtTexts.includes('-');
     const num = amtTexts.find(t => AMOUNT_RE.test(t.trim()));
     if (!num) continue;
-    const amtCents = parseAmount(neg ? `-${num}` : num);
+    const amtCents = parseAmount(neg ? `-${num}` : num) ?? 0;
     if (amtCents === 0) continue;
 
     const desc = descItems.map(i => i.text).filter(t => t !== '$').join(' ').trim();
@@ -247,7 +247,7 @@ export function parseBofa(
 
     if (accountPages.size > 0) {
       // Find the NEXT account's starting page to set an upper bound
-      const accountPagesSorted = [...accountPages].sort((a, b) => a - b);
+      const accountPagesSorted = Array.from(accountPages).sort((a, b) => a - b);
       const minPage = accountPagesSorted[0] ?? 1;
       
       // Find where the next account section starts (next "Account number:" header after our pages)
@@ -274,8 +274,8 @@ export function extractBofaPeriod(pdf: ExtractedPdf): { periodStart: string; per
     // Checking/savings: "for December 20, 2025 to January 21, 2026"
     const m1 = item.text.match(/for\s+(\w+ \d+,\s*\d{4})\s+to\s+(\w+ \d+,\s*\d{4})/i);
     if (m1) {
-      const start = parseMonthDayYear(m1[1]);
-      const end   = parseMonthDayYear(m1[2]);
+      const start = parseMonthDayYear(m1[1] ?? '');
+      const end   = parseMonthDayYear(m1[2] ?? '');
       if (start && end) return { periodStart: start, periodEnd: end };
     }
     // CC: "December 24 - January 23, 2026"

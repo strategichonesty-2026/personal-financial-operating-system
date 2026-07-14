@@ -19,7 +19,7 @@ type TrialBalance = { accounts: Account[]; totalDebits: number; totalCredits: nu
 
 export default function TrialBalancePage() {
   const [tb, setTb] = useState<TrialBalance | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ income: true, expense: true, asset: false, liability: false, equity: false });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ income: false, expense: false, asset: false, liability: false, equity: false });
 
   useEffect(() => { fetch('/api/v1/trial-balance').then(r => r.json()).then(d => setTb(d)); }, []);
 

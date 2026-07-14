@@ -56,6 +56,8 @@ export interface ValidationInput {
   parsed: { amountCents: number; direction: 'debit' | 'credit' }[];
   openingBalanceCents: number | null;
   closingBalanceCents: number | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
   inserted: number;
   duplicates: number;
 }

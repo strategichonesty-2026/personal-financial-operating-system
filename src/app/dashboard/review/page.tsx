@@ -86,8 +86,8 @@ export default function ReviewPage() {
         byInst[batch.institution].push(batch);
       }
       for (const [inst, batches] of Object.entries(byInst)) {
-        const hasPending = batches.some(x => x.pendingCount > 0 || x.status === 'posted');
-        const allComplete = batches.every(x => (x.status === 'reconciled' || x.status === 'done') && x.pendingCount === 0);
+        const hasPending = (batches as any[]).some((x: any) => x.pendingCount > 0 || x.status === 'posted');
+        const allComplete = (batches as any[]).every((x: any) => (x.status === 'reconciled' || x.status === 'done') && x.pendingCount === 0);
         if (hasPending) toExpand[inst] = true;
         if (allComplete) toExpand[inst] = false;
       }
@@ -139,7 +139,7 @@ export default function ReviewPage() {
   const grouped: Record<string, Batch[]> = {};
   for (const b of batches) {
     if (!grouped[b.institution]) grouped[b.institution] = [];
-    grouped[b.institution].push(b);
+    grouped[b.institution]!.push(b);
   }
   // Group each institution's batches by accountRef
   const sortedInstitutions = [

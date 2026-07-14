@@ -33,7 +33,7 @@ export async function POST() {
       byAccount[key].push(b);
     }
     for (const key of Object.keys(byAccount)) {
-      byAccount[key].sort((a, b) =>
+      byAccount[key]?.sort((a, b) =>
         (a.periodStart ?? '').localeCompare(b.periodStart ?? '')
       );
     }
