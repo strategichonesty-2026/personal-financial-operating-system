@@ -37,7 +37,8 @@ const ACCOUNT_IDS: Record<string, string> = {
   '6113': '43f72adc-d897-4554-a6a7-3498978b28c6',
   '6114': 'eb6ecd5c-e76c-4a3b-b8f8-69a2c6865473',
   '6115': '25e043d1-f8c0-4f82-bbaf-d4e62dd34f37',
-  '6116': '9450d8a6-f96d-4281-a320-11a17ec57af1',  
+  '6116': '9450d8a6-f96d-4281-a320-11a17ec57af1',
+  '6117': '9d294101-f8e8-44a2-adb1-ceb85fe7de6e',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -140,6 +141,17 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /skyway wok/i,                                         debitCode: '6112', creditCode: '2014' },
   { pattern: /chipotle/i,                                           debitCode: '6112', creditCode: '2016' },
   { pattern: /dragon star oriental/i,                               debitCode: '6112', creditCode: '2014' },
+  // GAS & FUEL
+  { pattern: /circle k dealer/i,                                    debitCode: '6117', creditCode: '2016' },
+  { pattern: /circle k/i,                                           debitCode: '6117', creditCode: '1011' },
+  // INTEREST INCOME
+  { pattern: /^interest earned$/i,                                  debitCode: '1014', creditCode: '4041' },
+  // AIRBNB INCOME
+  { pattern: /electronic deposit from airbnb/i,                     debitCode: '1014', creditCode: '4031' },
+  // AI SUBSCRIPTIONS
+  { pattern: /anthropic\/claude|anthropic claude/i,                 debitCode: '6113', creditCode: '2016' },
+  // FAMILY
+  { pattern: /zelle instant pmt to tofunmi/i,                       debitCode: '6107', creditCode: '1011' },
   // OFFICE & COMMUTE
   { pattern: /wfestwncafe/i,                                        debitCode: '6116', creditCode: '2016' },
   { pattern: /denison parking/i,                                    debitCode: '6116', creditCode: '2016' },
