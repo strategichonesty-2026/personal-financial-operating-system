@@ -214,7 +214,7 @@ export async function runReconciliation(input: ReconcileInput): Promise<Reconcil
   const suggestions = generateSuggestions(unmatchedStmt, unmatchedLedger);
   const matchedCount = items.filter(i => i.matchType === 'exact' || i.matchType === 'fuzzy').length;
   const confidenceScore = calcConfidence(statementTransactions.length, matchedCount, differenceCents, suggestions);
-  const status = differenceCents === 0 && confidenceScore >= 80 ? 'complete' : 'flagged';
+  const status = differenceCents === 0 ? 'complete' : 'flagged';
 
   // L6 — save
   const reconciliationId = crypto.randomUUID();

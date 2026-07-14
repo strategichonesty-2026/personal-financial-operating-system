@@ -185,17 +185,11 @@ function parseCreditCard(
 
     // Amount: may be split across two items (e.g. "-" and "26.00")
     const amtTexts = amtItems.map(i => i.text.trim());
-    let amtStr = amtTexts.join('').replace(/[$,\s]/g, '');
-    // Handle split negative: ["-", "26.00"] → "-26.00"
-    if (!AMOUNT_RE.test(amtStr)) {
-      const neg = amtTexts.includes('-');
-      const num = amtTexts.find(t => /^\d[\d,.]*\d$/.test(t));
-      if (num) amtStr = neg ? `-${num.replace(/,/g,'')}` : num.replace(/,/g,'');
-    }
-
-    if (!AMOUNT_RE.test(amtStr)) continue;
-
-    const amtCents = Math.round(parseFloat(amtStr) * 100);
+    // Handle split amounts: ["-", "$", "1,079.89"] or ["-", "26.00"]
+    const neg = amtTexts.includes('-');
+    const num = amtTexts.find(t => AMOUNT_RE.test(t.trim()));
+    if (!num) continue;
+    const amtCents = parseAmount(neg ? `-${num}` : num);
     if (amtCents === 0) continue;
 
     const desc = descItems.map(i => i.text).filter(t => t !== '$').join(' ').trim();
