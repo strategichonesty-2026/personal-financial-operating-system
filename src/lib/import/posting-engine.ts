@@ -38,7 +38,9 @@ const ACCOUNT_IDS: Record<string, string> = {
   '6114': 'eb6ecd5c-e76c-4a3b-b8f8-69a2c6865473',
   '6115': '25e043d1-f8c0-4f82-bbaf-d4e62dd34f37',
   '6116': '9450d8a6-f96d-4281-a320-11a17ec57af1',
-  '6117': '9d294101-f8e8-44a2-adb1-ceb85fe7de6e',  
+  '6117': '9d294101-f8e8-44a2-adb1-ceb85fe7de6e',
+  '6118': 'ab82db50-d1da-42f2-936f-a3407ec7e8de',
+  '6119': 'd0550011-f466-4667-ae00-0b7002413b3f',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -141,6 +143,17 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /skyway wok/i,                                         debitCode: '6112', creditCode: '2014' },
   { pattern: /chipotle/i,                                           debitCode: '6112', creditCode: '2016' },
   { pattern: /dragon star oriental/i,                               debitCode: '6112', creditCode: '2014' },
+  // ONLINE SHOPPING
+  { pattern: /paypal \*justfab/i,                                   debitCode: '6118', creditCode: '2014' },
+  { pattern: /paypal \*temu/i,                                      debitCode: '6118', creditCode: '2014' },
+  { pattern: /electronic withdrawal to paypal/i,                    debitCode: '6118', creditCode: '1014' },
+  // CRYPTO & INVESTMENT LOSS
+  { pattern: /crypto tax.*koin/i,                                   debitCode: '6119', creditCode: '2016' },
+  { pattern: /wfcu des:direct db/i,                                 debitCode: '6119', creditCode: '1016' },
+  // USPS → Office & Commute
+  { pattern: /usps po/i,                                            debitCode: '6116', creditCode: '2014' },
+  // DOLLAR TREE → Home Improvement
+  { pattern: /dollartree/i,                                         debitCode: '6108', creditCode: '2014' },
   // GAS & FUEL
   { pattern: /circle k dealer/i,                                    debitCode: '6117', creditCode: '2016' },
   { pattern: /circle k/i,                                           debitCode: '6117', creditCode: '1011' },
