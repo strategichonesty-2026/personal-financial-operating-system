@@ -110,7 +110,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // SUBSCRIPTIONS
   { pattern: /to subscription/i,             debitCode: '6035', creditCode: '1011' },
   // GYM
-  { pattern: /fitness abc|xperience fitness/i,debitCode: '6081',creditCode: '1011' },
+  { pattern: /fitness abc|xperience fitnes/i, debitCode: '6081', creditCode: '1011' },
   // INVESTMENTS
   { pattern: /to acorns invest/i,            isTransfer: true, transferToCode: '1021' },
   { pattern: /to acorns later/i,             isTransfer: true, transferToCode: '1022' },
