@@ -74,7 +74,7 @@ export async function GET() {
       periodStart: b.periodStart,
       periodEnd: b.periodEnd,
       status: b.status,
-      createdAt: b.createdAt,
+      createdAt: null,
       transactionCount: c.pending + c.posted + c.duplicate,
       txnCount: c.pending + c.posted + c.duplicate,
       pendingCount: c.pending,
