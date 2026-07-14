@@ -45,9 +45,9 @@ export async function GET() {
   function extractLast4(name: string | null): string {
     if (!name) return '????';
     const m1 = name.match(/\((\d{4})\)/);
-    if (m1) return m1[1];
+    if (m1) return m1[1] ?? '????';
     const m2 = name.match(/(\d{4})$/);
-    return m2 ? m2[1] : '????';
+    return m2 ? (m2[1] ?? '????') : '????';
   }
 
   // Get reconciliation status for each batch
