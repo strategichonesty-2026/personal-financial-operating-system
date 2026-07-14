@@ -5,7 +5,7 @@ import type { ExtractedPdf, PdfTextItem } from '../pdf-extractor';
 const CHK_SAV = {
   DATE_MIN:  30, DATE_MAX:  55,   // x≈36
   DESC_MIN:  80, DESC_MAX: 520,   // x≈91
-  AMT_MIN:  530, AMT_MAX:  570,   // x≈550 (deposits positive, withdrawals negative)
+  AMT_MIN:  230, AMT_MAX:  570,   // x≈246 (checks) or x≈550 (deposits/withdrawals)
 };
 
 const CC = {
@@ -96,6 +96,12 @@ function parseCheckingOrSavings(
       if (rowY > 350) {
         inTransactions = true;
       }
+      continue;
+    }
+
+    // Checks section
+    if (rowText.startsWith('Checks') && !rowText.includes('Total')) {
+      inTransactions = true;
       continue;
     }
 
