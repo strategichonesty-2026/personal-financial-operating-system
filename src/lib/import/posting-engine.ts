@@ -123,18 +123,25 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /runwayml|runway standard plan/i,                      debitCode: '6113', creditCode: '2014' },
   { pattern: /predis\.ai/i,                                         debitCode: '6113', creditCode: '2016' },
   // SUBSCRIPTIONS (additional)
+  { pattern: /kindle svcs/i,                                        debitCode: '6035', creditCode: '2014' },
+  { pattern: /charged to standard purch/i,                          debitCode: '5081', creditCode: '2014' },
   { pattern: /mailchimp/i,                                          debitCode: '6035', creditCode: '2014' },
   { pattern: /sling tv/i,                                           debitCode: '6035', creditCode: '2014' },
   { pattern: /wmt plus/i,                                           debitCode: '6035', creditCode: '2014' },
   { pattern: /paypal.*google/i,                                     debitCode: '6035', creditCode: '1015' },
   // MEDICAL (additional)
+  { pattern: /cvs\/pharmacy/i,                                      debitCode: '5044', creditCode: '2014' },
   { pattern: /an adapthealth|adapthealth/i,                         debitCode: '5044', creditCode: '2014' },
   // MEALS (additional)
+  { pattern: /arbys/i,                                              debitCode: '6112', creditCode: '2014' },
+  { pattern: /popeyes/i,                                            debitCode: '6112', creditCode: '2014' },
+  { pattern: /shoreview cafe/i,                                     debitCode: '6112', creditCode: '2016' },
   { pattern: /red cow/i,                                            debitCode: '6112', creditCode: '2014' },
   { pattern: /skyway wok/i,                                         debitCode: '6112', creditCode: '2014' },
   { pattern: /chipotle/i,                                           debitCode: '6112', creditCode: '2016' },
   { pattern: /dragon star oriental/i,                               debitCode: '6112', creditCode: '2014' },
   // OFFICE & COMMUTE
+  { pattern: /wfestwncafe/i,                                        debitCode: '6116', creditCode: '2016' },
   { pattern: /denison parking/i,                                    debitCode: '6116', creditCode: '2016' },
   // PARTY & GIFTS
   { pattern: /ck holiday/i,                                         debitCode: '6110', creditCode: '1011' },
