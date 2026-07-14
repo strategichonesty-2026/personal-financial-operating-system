@@ -40,7 +40,13 @@ const ACCOUNT_IDS: Record<string, string> = {
   '6116': '9450d8a6-f96d-4281-a320-11a17ec57af1',
   '6117': '9d294101-f8e8-44a2-adb1-ceb85fe7de6e',
   '6118': 'ab82db50-d1da-42f2-936f-a3407ec7e8de',
-  '6119': 'd0550011-f466-4667-ae00-0b7002413b3f',  
+  '6119': 'd0550011-f466-4667-ae00-0b7002413b3f',
+  '5045': '50aa9ab9-89c3-4c42-bc56-9e83ba68758e',
+  '5046': '9f16dcac-c598-48f3-ae50-70dc60186152',
+  '5047': '2dad06ac-6755-42ab-95cd-d5226f60f01a',
+  '5048': '4009c7e6-3c20-4aa1-8584-e900e600031a',
+  '6120': '3dc5440d-e8b8-4c0b-843a-825075f81c34',
+  '6121': '80b0b74b-23bd-4d8d-a3e7-0de83ef53312',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -109,8 +115,8 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // INSURANCE
   { pattern: /nationwide/i,                  debitCode: '5044', creditCode: '1015' },
   // BNPL
-  { pattern: /affirm/i,                      debitCode: '5081', creditCode: '1011' },
-  { pattern: /atgpay/i,                      debitCode: '5081', creditCode: '1011' },
+  { pattern: /affirm/i,                      debitCode: '5048', creditCode: '1011' },
+  { pattern: /atgpay/i,                      debitCode: '5048', creditCode: '1011' },
   // SUBSCRIPTIONS
   { pattern: /to subscription/i,             debitCode: '6035', creditCode: '1011' },
   // GYM
@@ -133,8 +139,8 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /wmt plus/i,                                           debitCode: '6035', creditCode: '2014' },
   { pattern: /paypal.*google/i,                                     debitCode: '6035', creditCode: '1015' },
   // MEDICAL (additional)
-  { pattern: /cvs\/pharmacy/i,                                      debitCode: '5044', creditCode: '2014' },
-  { pattern: /an adapthealth|adapthealth/i,                         debitCode: '5044', creditCode: '2014' },
+  { pattern: /cvs\/pharmacy/i,                                      debitCode: '5045', creditCode: '2014' },
+  { pattern: /an adapthealth|adapthealth/i,                         debitCode: '5045', creditCode: '2014' },
   // MEALS (additional)
   { pattern: /arbys/i,                                              debitCode: '6112', creditCode: '2014' },
   { pattern: /popeyes/i,                                            debitCode: '6112', creditCode: '2014' },
@@ -142,9 +148,12 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /red cow/i,                                            debitCode: '6112', creditCode: '2014' },
   { pattern: /skyway wok/i,                                         debitCode: '6112', creditCode: '2014' },
   { pattern: /chipotle/i,                                           debitCode: '6112', creditCode: '2016' },
-  { pattern: /dragon star oriental/i,                               debitCode: '6112', creditCode: '2014' },
+  { pattern: /dragon star oriental/i,                               debitCode: '5021', creditCode: '2014' },
   // HOME EXPENSES (misc artifacts)
   { pattern: /^402 -10\.00$/i,                                      debitCode: '6103', creditCode: '1016' },
+  // SAVINGS TRANSFERS
+  { pattern: /wings financial/i,                                     debitCode: '6121', creditCode: '1011' },
+  { pattern: /wfcu des:direct db/i,                                  debitCode: '6121', creditCode: '1016' },
   // PDF ARTIFACTS
   { pattern: /^402 -10\.00$/,                                       debitCode: '6108', creditCode: '1016' },
   // ONLINE SHOPPING
@@ -164,7 +173,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // INTEREST INCOME
   { pattern: /^interest earned$/i,                                  debitCode: '1014', creditCode: '4041' },
   // AIRBNB INCOME
-  { pattern: /electronic deposit from airbnb/i,                     debitCode: '1014', creditCode: '4031' },
+  { pattern: /electronic deposit from airbnb/i,                     debitCode: '1014', creditCode: '6120' },
   // AI SUBSCRIPTIONS
   { pattern: /anthropic/i,                                           debitCode: '6113', creditCode: '2016' },
   // FAMILY
@@ -201,7 +210,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /online scheduled payment to acct# 5787/i,            isCCPayment: true, liabilityCode: '2016' },
   // ZELLE FROM SUJAN (phone reimbursement)
   { pattern: /zelle from shrestha sujan.*phone/i,                   debitCode: '1011', creditCode: '5071' },
-  { pattern: /zelle from shrestha sujan/i,                          debitCode: '1011', creditCode: '4012' },
+  { pattern: /zelle from shrestha sujan/i,                          debitCode: '1011', creditCode: '4041' },
   // XUNO ELECTRONIC WITHDRAWAL
   { pattern: /electronic withdrawal to xuno/i,                      debitCode: '6107', creditCode: '1014' },
   // INTERNAL TRANSFERS BofA CHK→SAV
@@ -243,7 +252,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // CARDMEMBER SERV (Chase CC payment or donation)
   { pattern: /electronic withdrawal to cardmember serv/i,           isCCPayment: true, liabilityCode: '2012' },
   // JAY LAMSAL → Rental/maintenance expense
-  { pattern: /zelle instant pmt to jay lamsal/i,                    debitCode: '6091', creditCode: '1011' },
+  { pattern: /zelle instant pmt to jay lamsal/i,                    debitCode: '6120', creditCode: '1011' },
   // PROFESSIONAL DEVELOPMENT
   { pattern: /zelle payment to gopu shrestha.*resume builder/i,  debitCode: '6105', creditCode: '1016' },
   { pattern: /paypal \*beverlyanne/i,                             debitCode: '6105', creditCode: '2014' },
@@ -261,23 +270,23 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // MOBILE DEPOSITS (refunds/returns)
   { pattern: /bkofamerica mobile.*deposit/i,                      debitCode: '1016', creditCode: '4012' },
   { pattern: /holiday store/i,               debitCode: '6103', creditCode: '1011' },
-  { pattern: /pmt to jay lamsal/i,           debitCode: '6091', creditCode: '1011' },
+  { pattern: /pmt to jay lamsal/i,           debitCode: '6120', creditCode: '1011' },
 
-  { pattern: /wfcu direct db/i,              debitCode: '6091', creditCode: '1011' },
+  { pattern: /wfcu direct db/i,              debitCode: '6121', creditCode: '1011' },
   // SYNCHRONY / SAM'S CLUB
   { pattern: /online payment thank you/i,    isCCPayment: true, liabilityCode: '2015' },
   { pattern: /online payment, thank you/i,      isCCPayment: true, liabilityCode: '2013' },
   { pattern: /automatic payment - thank you/i,   isCCPayment: true, liabilityCode: '2012' },
-  { pattern: /sam's club \d+/i,             debitCode: '6081', creditCode: '2015' },
+  { pattern: /sam's club \d+/i,             debitCode: '5021', creditCode: '2015' },
   { pattern: /google.*google one/i,          debitCode: '6035', creditCode: '2015' },
   { pattern: /interest charge/i,             debitCode: '5081', creditCode: '2015' },
   // INTEREST CHARGES (all credit cards — debit to interest expense 5081)
-  { pattern: /purchase interest charge/i,    debitCode: '5081', creditCode: '2012' },
-  { pattern: /interest charge on purchases/i,debitCode: '5081', creditCode: '2013' },
-  { pattern: /interest charge on cash/i,     debitCode: '5081', creditCode: '2013' },
-  { pattern: /interest charge/i,             debitCode: '5081', creditCode: '2012' },
-  { pattern: /periodic rate/i,               debitCode: '5081', creditCode: '2015' },
-  { pattern: /minimum interest/i,            debitCode: '5081', creditCode: '2015' },
+  { pattern: /purchase interest charge/i,    debitCode: '5046', creditCode: '2012' },
+  { pattern: /interest charge on purchases/i,debitCode: '5046', creditCode: '2013' },
+  { pattern: /interest charge on cash/i,     debitCode: '5046', creditCode: '2013' },
+  { pattern: /interest charge/i,             debitCode: '5046', creditCode: '2012' },
+  { pattern: /periodic rate/i,               debitCode: '5046', creditCode: '2015' },
+  { pattern: /minimum interest/i,            debitCode: '5046', creditCode: '2015' },
   // CC PAYMENTS
   { pattern: /chase credit crd epay/i,       isCCPayment: true, liabilityCode: '2012' },
   { pattern: /citi card online payment/i,    isCCPayment: true, liabilityCode: '2013' },
@@ -285,7 +294,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
 // PAYROLL appearing in non-WF accounts
   { pattern: /wells fargo bank des:payroll/i,                          creditCode: '4011' },
 { pattern: /wells fargo bank des:payrll dep/i,                     creditCode: '4011' },
-  { pattern: /bestify tax advi/i,                                     debitCode: '6091', creditCode: '1016' },
+  { pattern: /bestify tax advi/i,                                     debitCode: '5047', creditCode: '1016' },
   { pattern: /electronic withdrawal to citi card online/i,            isCCPayment: true, liabilityCode: '2013' },
 { pattern: /wells fargo bank payroll/i,                    creditCode: '4011' },
   { pattern: /mobile banking payment to crd 5787/i,          isCCPayment: true, liabilityCode: '2016' },
@@ -339,7 +348,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /from account \*{0,4}6820/i,    isTransferIn: true, sourceCode: '1014' },
   { pattern: /recurring transfer from.*checking/i, isTransferIn: true, sourceCode: '1011' },
   // ZELLE FROM FAMILY
-  { pattern: /zelle from shrestha chini/i,   creditCode: '4012' },
+  { pattern: /zelle from shrestha chini/i,   creditCode: '4041' },
   { pattern: /zelle from shrestha/i,           debitCode: '1011', creditCode: '6103' },
 ];
 
