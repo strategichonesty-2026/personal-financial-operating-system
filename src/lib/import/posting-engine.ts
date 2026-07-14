@@ -161,6 +161,9 @@ const DESCRIPTION_RULES: PostingRule[] = [
   // ZELLE FROM SELF
 
 { pattern: /electronic withdrawal to wells fargo card/i, isCCPayment: true, liabilityCode: '2024' },
+  { pattern: /wf credit card des:auto pay.*6317/i,              isCCPayment: true, liabilityCode: '2024' },
+  { pattern: /electronic withdrawal to chase credit crd/i,    isCCPayment: true, liabilityCode: '2012' },
+  { pattern: /real time payment to gopu shrestha/i,           isTransfer: true, transferToCode: '1014' },
   { pattern: /us bank.*credit card|usbank.*autopay/i,      isCCPayment: true, liabilityCode: '2025' },
   { pattern: /irs treas 310.*tax ref/i,                    creditCode: '4012' },
   { pattern: /mn dept of reven.*mnsttaxrfd/i,              creditCode: '4012' },
