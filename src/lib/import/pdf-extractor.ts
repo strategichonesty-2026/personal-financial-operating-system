@@ -1,8 +1,4 @@
-import { execFile } from 'child_process';
-import { writeFile, unlink } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
+
 
 export interface PdfTextItem {
   text: string;
@@ -47,22 +43,31 @@ export async function extractPdfText(
   buffer: Buffer,
   filename: string
 ): Promise<ExtractedPdf> {
-  const tmpPath = join(tmpdir(), `pfos-${randomUUID()}.pdf`);
-  await writeFile(tmpPath, buffer);
-
   try {
-    const scriptPath = join(process.cwd(), 'scripts', 'extract-pdf.mjs');
-    const raw = await new Promise<string>((resolve, reject) => {
-      execFile('node', [scriptPath, tmpPath], { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
-        if (err) reject(new Error(stderr || err.message));
-        else resolve(stdout);
-      });
-    });
+    // Use pdfjs-dist directly (works in both local and Vercel serverless)
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as any);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
-    const data = JSON.parse(raw) as { ok: boolean; pages: number; items: PdfTextItem[] };
-    if (!data.ok) throw new Error('Extractor returned ok=false');
+    const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise;
+    const extractedItems: PdfTextItem[] = [];
 
-    const items = data.items;
+    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.0 });
+      const textContent = await page.getTextContent();
+      const pageHeight = viewport.height;
+      for (const item of textContent.items as any[]) {
+        if (!('str' in item)) continue;
+        const str = item.str.trim();
+        if (!str) continue;
+        const tx = item.transform as number[];
+        const x = Math.round((tx[4] ?? 0) * 10) / 10;
+        const y = Math.round((pageHeight - (tx[5] ?? 0)) * 10) / 10;
+        extractedItems.push({ text: str, x, y, page: pageNum });
+      }
+    }
+
+    const items = extractedItems;
     const text = items.map(i => i.text).join(' ');
 
     const allMatches = Array.from(filename.matchAll(/\b(\d{4})\b/g))
@@ -188,10 +193,8 @@ export async function extractPdfText(
       institution: null, accountLast4, year: null, month: null, periodStart, periodEnd,
     };
 
-    return { items, text, pages: data.pages, filename, meta };
+    return { items, text, pages: items.length > 0 ? Math.max(...items.map(i => i.page)) : 0, filename, meta };
 
-  } finally {
-    await unlink(tmpPath).catch(() => {});
   }
 }
 
