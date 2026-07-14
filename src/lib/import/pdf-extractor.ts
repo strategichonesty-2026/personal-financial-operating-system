@@ -51,9 +51,8 @@ export async function extractPdfText(
     const { GlobalWorkerOptions } = pdfjsLib;
     GlobalWorkerOptions.workerSrc = '';
     // Import fake worker to enable serverless PDF parsing
-    await import('pdfjs-dist/legacy/build/pdf.worker.mjs').catch(() => {
-      // fake worker fallback for serverless
-    });
+    // @ts-ignore
+    await import('pdfjs-dist/legacy/build/pdf.worker.mjs').catch(() => {});
 
     const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise;
     const extractedItems: PdfTextItem[] = [];
