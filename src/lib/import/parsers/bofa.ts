@@ -171,8 +171,8 @@ function parseCreditCard(
         rowText.includes('TOTAL FEES')) {
       continue;
     }
-    // Skip interest rows
-    if (currentSection === 'interest') continue;
+    // Interest rows — include as debits
+    if (currentSection === 'interest' && rowText.includes('TOTAL INTEREST')) continue;
     if (!inTransactions) continue;
 
     const dateItems = row.filter(i => i.x >= CC.TXN_DATE_MIN && i.x <= CC.TXN_DATE_MAX);
