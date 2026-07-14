@@ -153,6 +153,9 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /aldi\s+\d+/i,                                   debitCode: '5021', creditCode: '2014' },
  { pattern: /bank of america credit card bill payment/i,              isCCPayment: true, liabilityCode: '2016' },
   { pattern: /^cc payment$/i,                                          isCCPayment: true, liabilityCode: '2016' },
+  { pattern: /payment - thank you.*5787/i,                               isCCPayment: true, liabilityCode: '2016' },
+  { pattern: /payment - thank you.*9292/i,                               isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /payment - thank you.*3463/i,                               isCCPayment: true, liabilityCode: '2014' },
   // CPA / PROFESSIONAL FEES
   { pattern: /zelle payment to santosh timilsina/i,                    debitCode: '6091', creditCode: '1015' },
   // ZELLE FROM SELF
@@ -178,7 +181,8 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /from account \*{0,4}6820/i,    isTransferIn: true, sourceCode: '1014' },
   { pattern: /recurring transfer from.*checking/i, isTransferIn: true, sourceCode: '1011' },
   // ZELLE FROM FAMILY
-  { pattern: /zelle from shrestha/i,         debitCode: '1011', creditCode: '6103' },
+  { pattern: /zelle from shrestha chini/i,   creditCode: '4012' },
+  { pattern: /zelle from shrestha/i,           debitCode: '1011', creditCode: '6103' },
 ];
 
 // ---------------------------------------------------------------------------
