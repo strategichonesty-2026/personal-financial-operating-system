@@ -125,6 +125,10 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /wf credit card auto pay/i,     isCCPayment: true, liabilityCode: '2014' },
 // PAYROLL appearing in non-WF accounts
   { pattern: /wells fargo bank des:payroll/i,                          creditCode: '4011' },
+{ pattern: /wells fargo bank payroll/i,                    creditCode: '4011' },
+  { pattern: /mobile banking payment to crd 5787/i,          isCCPayment: true, liabilityCode: '2016' },
+  { pattern: /mobile banking payment to crd 3463/i,          isCCPayment: true, liabilityCode: '2014' },
+  { pattern: /mobile banking payment to crd 9292/i,          isCCPayment: true, liabilityCode: '2014' },
   // BOA CC 5787 payments
   { pattern: /online banking payment to crd 5787/i,                    isCCPayment: true, liabilityCode: '2016' },
   { pattern: /online payment from chk.*5787/i,                         isCCPayment: true, liabilityCode: '2016' },
