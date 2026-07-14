@@ -132,7 +132,12 @@ const DESCRIPTION_RULES: PostingRule[] = [
  { pattern: /to samsclub mstrcrd/i,         isCCPayment: true, liabilityCode: '2011' },
   // INTERNAL TRANSFERS — out
   { pattern: /to account \*{0,4}1353/i,      isTransfer: true, transferToCode: '1015' },
-  { pattern: /recurring transfer to.*way2save/i, isTransfer: true, transferToCode: '1013' },
+// US BANK INTERNAL TRANSFERS
+  { pattern: /transfer to account 104788091353/i,   isTransfer: true, transferToCode: '1015' },
+  { pattern: /transfer from account 104784156820/i, isTransferIn: true, sourceCode: '1014' },
+  // ROCKET MORTGAGE
+  { pattern: /electronic withdrawal to rocket mortgage/i, debitCode: '5011', creditCode: '1014' }, 
+ { pattern: /recurring transfer to.*way2save/i, isTransfer: true, transferToCode: '1013' },
   { pattern: /pmt to gopu boa tm/i,          isTransfer: true, transferToCode: '1016' },
   { pattern: /zelle to boa gopu/i,           isTransfer: true, transferToCode: '1016' },
   // INTERNAL TRANSFERS — in
