@@ -196,6 +196,8 @@ export async function extractPdfText(
 
     return { items, text, pages: items.length > 0 ? Math.max(...items.map(i => i.page)) : 0, filename, meta };
 
+  } catch (err) {
+    throw new Error(`PDF extraction failed: ${String(err)}`);
   }
 }
 
