@@ -47,7 +47,13 @@ export async function extractPdfText(
     // Use pdfjs-dist directly (works in both local and Vercel serverless)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs') as any;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    // Use fake worker for serverless environments (Vercel)
+    const { GlobalWorkerOptions } = pdfjsLib;
+    GlobalWorkerOptions.workerSrc = '';
+    // Import fake worker to enable serverless PDF parsing
+    await import('pdfjs-dist/legacy/build/pdf.worker.mjs').catch(() => {
+      // fake worker fallback for serverless
+    });
 
     const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise;
     const extractedItems: PdfTextItem[] = [];
