@@ -47,7 +47,9 @@ const ACCOUNT_IDS: Record<string, string> = {
   '5048': '4009c7e6-3c20-4aa1-8584-e900e600031a',
   '6120': '3dc5440d-e8b8-4c0b-843a-825075f81c34',
   '6121': '80b0b74b-23bd-4d8d-a3e7-0de83ef53312',
-  '4013': 'e4e16fca-1a7f-4f26-a624-eb2cacab2499',  
+  '4013': 'e4e16fca-1a7f-4f26-a624-eb2cacab2499',
+  '4033': '0420e91b-563a-4f56-bf73-4136a2bf327b',
+  '4042': '617cb725-4b75-4bc9-92e6-602bcb23107a',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -97,10 +99,10 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /from wells fargo bank/i,       debitCode: '1011', creditCode: '4011' },
   { pattern: /from wells fargo ifi/i,        debitCode: '1011', creditCode: '4011' },
   // RENTAL INCOME
-  { pattern: /homes plus realt/i,            debitCode: '1014', creditCode: '4032' },
+  { pattern: /homes plus realt/i,            debitCode: '1014', creditCode: '4033' },
   { pattern: /pmt from sabin thapa/i,        debitCode: '1015', creditCode: '4032' },
   // INTEREST
-  { pattern: /^interest payment$/i,          debitCode: '1014', creditCode: '4041' },
+  { pattern: /^interest payment$/i,          debitCode: '1014', creditCode: '4042' },
   // RENTAL MORTGAGES
   { pattern: /prmi payments.*0251/i,         debitCode: '5014', creditCode: '1011' },
   { pattern: /prmi payments.*4937/i,         debitCode: '5015', creditCode: '1011' },
@@ -172,7 +174,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /circle k dealer/i,                                    debitCode: '6117', creditCode: '2016' },
   { pattern: /circle k/i,                                           debitCode: '6117', creditCode: '1011' },
   // INTEREST INCOME
-  { pattern: /^interest earned$/i,                                  debitCode: '1014', creditCode: '4041' },
+  { pattern: /^interest earned$/i,                                  debitCode: '1014', creditCode: '4042' },
   // AIRBNB INCOME
   { pattern: /electronic deposit from airbnb/i,                     debitCode: '1014', creditCode: '6120' },
   // AI SUBSCRIPTIONS
