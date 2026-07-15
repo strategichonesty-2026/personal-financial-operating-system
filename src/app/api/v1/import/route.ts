@@ -37,26 +37,23 @@ export async function POST(request: NextRequest) {
     const dupStart = `${dupYear}-${String(dupMonth).padStart(2,'0')}-01`;
     const dupEnd   = new Date(dupYear, dupMonth, 0).toISOString().slice(0, 10);
 
-    const { db }            = await import('@/lib/db');
-    const { importBatches } = await import('@/lib/db/schema');
-    const { and, eq }       = await import('drizzle-orm');
+    const { db }  = await import('@/lib/db');
+    const { sql } = await import('drizzle-orm');
 
-    const existing = await db
-      .select({ id: importBatches.id, filename: importBatches.filename })
-      .from(importBatches)
-      .where(and(
-        eq(importBatches.userId,    userId),
-        eq(importBatches.accountId, accountId),
-        eq(importBatches.periodStart, dupStart)
-      ))
-      .limit(1);
+    const dupResult = await db.execute(sql`
+      SELECT id, filename FROM import_batches
+      WHERE user_id    = ${userId}
+        AND account_id = ${accountId}
+        AND period_start::text LIKE ${dupStart + '%'}
+      LIMIT 1
+    `);
 
-    if (existing.length > 0) {
+    if (dupResult.rows.length > 0) {
       return NextResponse.json(
         {
           error:           'duplicate',
-          message:         `This account already has a statement imported for ${dupStart.slice(0,7)}. Originally imported as "${existing[0]?.filename}".`,
-          existingBatchId: existing[0]?.id,
+          message:         `This account already has a statement for ${dupStart.slice(0,7)}. Originally imported as "${dupResult.rows[0]?.filename}".`,
+          existingBatchId: dupResult.rows[0]?.id,
         },
         { status: 409 }
       );
