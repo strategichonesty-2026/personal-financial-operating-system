@@ -131,7 +131,7 @@ export default function LedgerPage() {
       }
       const all = Array.from(map.values());
       setGroups(all);
-      setExpanded(new Set(all.map(g => g.account_id)));
+      setExpanded(new Set());
     } catch (e) { setError(String(e)); }
     finally { setLoading(false); }
   }, []);

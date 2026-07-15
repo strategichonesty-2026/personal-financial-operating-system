@@ -30,17 +30,24 @@ export async function POST(request: NextRequest) {
     if (!monthStr)  return NextResponse.json({ error: 'No month'     }, { status: 400 });
 
     // ── DUPLICATE PREVENTION ─────────────────────────────────────────────────
-    // Block re-upload of the same filename for the same user.
+    // Block re-upload of same account + period (filename can differ).
+    // Build period_start and period_end from year/month to match DB format.
+    const dupYear  = parseInt(yearStr,  10);
+    const dupMonth = parseInt(monthStr, 10);
+    const dupStart = `${dupYear}-${String(dupMonth).padStart(2,'0')}-01`;
+    const dupEnd   = new Date(dupYear, dupMonth, 0).toISOString().slice(0, 10);
+
     const { db }            = await import('@/lib/db');
     const { importBatches } = await import('@/lib/db/schema');
     const { and, eq }       = await import('drizzle-orm');
 
     const existing = await db
-      .select({ id: importBatches.id })
+      .select({ id: importBatches.id, filename: importBatches.filename })
       .from(importBatches)
       .where(and(
-        eq(importBatches.userId, userId),
-        eq(importBatches.filename, file.name)
+        eq(importBatches.userId,    userId),
+        eq(importBatches.accountId, accountId),
+        eq(importBatches.periodStart, dupStart)
       ))
       .limit(1);
 
@@ -48,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:           'duplicate',
-          message:         `"${file.name}" has already been imported.`,
+          message:         `This account already has a statement imported for ${dupStart.slice(0,7)}. Originally imported as "${existing[0]?.filename}".`,
           existingBatchId: existing[0]?.id,
         },
         { status: 409 }
