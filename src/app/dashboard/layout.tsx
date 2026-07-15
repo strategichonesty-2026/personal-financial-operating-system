@@ -10,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <a href="/dashboard/review" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Review</a>
           <a href="/dashboard/reconciliation" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Reconcile</a>
           <a href="/dashboard/reports/trial-balance" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Trial Balance</a>
+          <a href="/dashboard/reports/ledger" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Ledger</a>
         </div>
         <UserButton afterSignOutUrl="/sign-in" />
       </nav>
