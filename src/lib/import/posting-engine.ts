@@ -46,7 +46,8 @@ const ACCOUNT_IDS: Record<string, string> = {
   '5047': '2dad06ac-6755-42ab-95cd-d5226f60f01a',
   '5048': '4009c7e6-3c20-4aa1-8584-e900e600031a',
   '6120': '3dc5440d-e8b8-4c0b-843a-825075f81c34',
-  '6121': '80b0b74b-23bd-4d8d-a3e7-0de83ef53312',  
+  '6121': '80b0b74b-23bd-4d8d-a3e7-0de83ef53312',
+  '4013': 'e4e16fca-1a7f-4f26-a624-eb2cacab2499',  
 '2031': '3d2b2b39-a254-4c94-a090-0f67cba1694a',
   '3030': 'dd9a2abc-7f30-4182-9de2-90b76e296efa',
   '4011': '09d54433-1d16-46aa-ac4b-6d8c57003e70',
@@ -217,6 +218,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /automatic transfer to sav 6951/i,                    isTransfer: true, transferToCode: '1020' },
   { pattern: /automatic transfer from chk 1961/i,                  isTransferIn: true, sourceCode: '1016' },
   // GROCERIES
+  { pattern: /costco gas/i,                                          debitCode: '6117', creditCode: '2013' },
   { pattern: /costco warehouse/i,                                   debitCode: '5021', creditCode: '2013' },
   // MEALS & ENTERTAINMENT
   { pattern: /g-will liquors/i,                                     debitCode: '6112', creditCode: '2016' },
@@ -258,7 +260,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /paypal \*beverlyanne/i,                             debitCode: '6105', creditCode: '2014' },
   // PERSONAL TRAVEL
   { pattern: /american air\d+/i,                                  debitCode: '6106', creditCode: '2016' },
-  { pattern: /zelle to laxmi pandey.*camping/i,                   debitCode: '6106', creditCode: '1011' },
+  { pattern: /zelle to laxmi pandey.*camping/i,                   debitCode: '6115', creditCode: '1011' },
   // FAMILY EXPENSES
   { pattern: /xuno debit/i,                                       debitCode: '6107', creditCode: '1011' },
   // HOME IMPROVEMENT
@@ -321,7 +323,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /payment - thank you.*9292/i,                               isCCPayment: true, liabilityCode: '2014' },
   { pattern: /payment - thank you.*3463/i,                               isCCPayment: true, liabilityCode: '2014' },
   // CPA / PROFESSIONAL FEES
-  { pattern: /zelle payment to santosh timilsina/i,                    debitCode: '6091', creditCode: '1015' },
+  { pattern: /zelle payment to santosh timilsina/i,                    debitCode: '5047', creditCode: '1015' },
   // ZELLE FROM SELF
 
 { pattern: /electronic withdrawal to wells fargo card/i, isCCPayment: true, liabilityCode: '2024' },
@@ -329,8 +331,8 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /electronic withdrawal to chase credit crd/i,    isCCPayment: true, liabilityCode: '2012' },
   { pattern: /real time payment to gopu shrestha/i,           isTransfer: true, transferToCode: '1014' },
   { pattern: /us bank.*credit card|usbank.*autopay/i,      isCCPayment: true, liabilityCode: '2025' },
-  { pattern: /irs treas 310.*tax ref/i,                    creditCode: '4012' },
-  { pattern: /mn dept of reven.*mnsttaxrfd/i,              creditCode: '4012' },
+  { pattern: /irs treas 310.*tax ref/i,                    creditCode: '4013' },
+  { pattern: /mn dept of reven.*mnsttaxrfd/i,              creditCode: '4013' },
   { pattern: /cardmember serv.*web pymt/i,                 isCCPayment: true, liabilityCode: '2012' }, 
 
  { pattern: /to samsclub mstrcrd/i,         isCCPayment: true, liabilityCode: '2011' },
