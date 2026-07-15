@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const { db }  = await import('@/lib/db');
     const { sql } = await import('drizzle-orm');
 
+    console.log('DUP_CHECK:', JSON.stringify({ userId, accountId, dupStart }));
     const dupResult = await db.execute(sql`
       SELECT id, filename FROM import_batches
       WHERE user_id    = ${userId}
