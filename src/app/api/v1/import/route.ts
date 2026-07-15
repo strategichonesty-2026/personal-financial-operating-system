@@ -16,51 +16,48 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ── DUPLICATE PREVENTION (outside try/catch so 409 is never swallowed) ────
+  const formData = await request.formData();
+  const file                = formData.get('file') as File | null;
+  const accountId           = formData.get('accountId') as string | null;
+  const yearStr             = formData.get('year') as string | null;
+  const monthStr            = formData.get('month') as string | null;
+  const institutionOverride = formData.get('institution') as string | null;
+
+  if (!file)      return NextResponse.json({ error: 'No file'      }, { status: 400 });
+  if (!accountId) return NextResponse.json({ error: 'No accountId' }, { status: 400 });
+  if (!yearStr)   return NextResponse.json({ error: 'No year'      }, { status: 400 });
+  if (!monthStr)  return NextResponse.json({ error: 'No month'     }, { status: 400 });
+
+  const dupYear  = parseInt(yearStr,  10);
+  const dupMonth = parseInt(monthStr, 10);
+  const dupStart = `${dupYear}-${String(dupMonth).padStart(2,'0')}-01`;
+
+  const { db }  = await import('@/lib/db');
+  const { sql } = await import('drizzle-orm');
+
+  console.log('DUP_CHECK:', JSON.stringify({ userId, accountId, dupStart }));
+  const dupResult = await db.execute(sql`
+    SELECT id, filename FROM import_batches
+    WHERE user_id    = ${userId}
+      AND account_id = ${accountId}
+      AND period_start::text LIKE ${dupStart + '%'}
+    LIMIT 1
+  `);
+
+  if (dupResult.rows.length > 0) {
+    return NextResponse.json(
+      {
+        error:           'duplicate',
+        message:         `This account already has a statement for ${dupStart.slice(0,7)}. Originally imported as "${dupResult.rows[0]?.filename}".`,
+        existingBatchId: dupResult.rows[0]?.id,
+      },
+      { status: 409 }
+    );
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   try {
-    const formData = await request.formData();
-    const file                = formData.get('file') as File | null;
-    const accountId           = formData.get('accountId') as string | null;
-    const yearStr             = formData.get('year') as string | null;
-    const monthStr            = formData.get('month') as string | null;
-    const institutionOverride = formData.get('institution') as string | null;
-
-    if (!file)      return NextResponse.json({ error: 'No file'      }, { status: 400 });
-    if (!accountId) return NextResponse.json({ error: 'No accountId' }, { status: 400 });
-    if (!yearStr)   return NextResponse.json({ error: 'No year'      }, { status: 400 });
-    if (!monthStr)  return NextResponse.json({ error: 'No month'     }, { status: 400 });
-
-    // ── DUPLICATE PREVENTION ─────────────────────────────────────────────────
-    // Block re-upload of same account + period (filename can differ).
-    // Build period_start and period_end from year/month to match DB format.
-    const dupYear  = parseInt(yearStr,  10);
-    const dupMonth = parseInt(monthStr, 10);
-    const dupStart = `${dupYear}-${String(dupMonth).padStart(2,'0')}-01`;
-    const dupEnd   = new Date(dupYear, dupMonth, 0).toISOString().slice(0, 10);
-
-    const { db }  = await import('@/lib/db');
-    const { sql } = await import('drizzle-orm');
-
-    console.log('DUP_CHECK:', JSON.stringify({ userId, accountId, dupStart }));
-    const dupResult = await db.execute(sql`
-      SELECT id, filename FROM import_batches
-      WHERE user_id    = ${userId}
-        AND account_id = ${accountId}
-        AND period_start::text LIKE ${dupStart + '%'}
-      LIMIT 1
-    `);
-
-    if (dupResult.rows.length > 0) {
-      return NextResponse.json(
-        {
-          error:           'duplicate',
-          message:         `This account already has a statement for ${dupStart.slice(0,7)}. Originally imported as "${dupResult.rows[0]?.filename}".`,
-          existingBatchId: dupResult.rows[0]?.id,
-        },
-        { status: 409 }
-      );
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Use provided year/month, or fall back to auto-detected from PDF
