@@ -29,6 +29,33 @@ export async function POST(request: NextRequest) {
     if (!yearStr)   return NextResponse.json({ error: 'No year'      }, { status: 400 });
     if (!monthStr)  return NextResponse.json({ error: 'No month'     }, { status: 400 });
 
+    // ── DUPLICATE PREVENTION ─────────────────────────────────────────────────
+    // Block re-upload of the same filename for the same user.
+    const { db }            = await import('@/lib/db');
+    const { importBatches } = await import('@/lib/db/schema');
+    const { and, eq }       = await import('drizzle-orm');
+
+    const existing = await db
+      .select({ id: importBatches.id })
+      .from(importBatches)
+      .where(and(
+        eq(importBatches.userId, userId),
+        eq(importBatches.filename, file.name)
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return NextResponse.json(
+        {
+          error:           'duplicate',
+          message:         `"${file.name}" has already been imported.`,
+          existingBatchId: existing[0]?.id,
+        },
+        { status: 409 }
+      );
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Use provided year/month, or fall back to auto-detected from PDF
