@@ -77,8 +77,16 @@ export default function CoveragePage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', fontSize: '0.8rem', color: '#6b7280' }}>
-        <span>✅ Reconciled &nbsp; 🔵 Imported &nbsp; ⬜ Missing</span>
+      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1rem', fontSize: '0.8rem', color: '#6b7280', alignItems: 'center' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ background: '#dcfce7', color: '#166534', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>✓</span> Reconciled
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>●</span> Imported
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ background: '#fee2e2', color: '#dc2626', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>✗</span> Missing
+        </span>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
@@ -105,15 +113,19 @@ export default function CoveragePage() {
                 {acct.months.map(m => {
                   const isReconciled = m.batch_status === 'reconciled';
                   const isImported   = m.status === 'imported';
-                  const bg    = isReconciled ? '#dcfce7' : isImported ? '#dbeafe' : '#f3f4f6';
-                  const icon  = isReconciled ? '✅' : isImported ? '🔵' : '⬜';
+                  const bg    = isReconciled ? '#dcfce7' : isImported ? '#dbeafe' : '#fee2e2';
+                  const color = isReconciled ? '#166534' : isImported ? '#1e40af' : '#dc2626';
+                  const label = isReconciled ? '✓' : isImported ? '●' : '✗';
                   const o = dollars(m.opening); const c = dollars(m.closing);
                   const tip = isImported || isReconciled
-                    ? (o && c ? `Open: ${o} → Close: ${c}` : m.batch_status ?? '')
+                    ? (o && c ? 'Open: ' + o + ' → Close: ' + c : m.batch_status ?? '')
                     : 'Missing — not yet imported';
                   return (
                     <td key={m.month} title={tip} style={{ padding: '0.25rem', textAlign: 'center' }}>
-                      <div style={{ background: bg, borderRadius: '4px', padding: '0.25rem', fontSize: '0.9rem' }}>{icon}</div>
+                      <div style={{ background: bg, borderRadius: '4px', padding: '0.35rem 0.25rem',
+                        fontSize: '0.8rem', fontWeight: 700, color }}>
+                        {label}
+                      </div>
                     </td>
                   );
                 })}
@@ -124,7 +136,12 @@ export default function CoveragePage() {
                     {acct.imported_count}/{acct.imported_count + acct.missing_count}
                   </span>
                   {acct.missing_count > 0 && (
-                    <div style={{ fontSize: '0.65rem', color: '#dc2626', marginTop: '2px' }}>{acct.missing_count} missing</div>
+                    <div style={{ fontSize: '0.65rem', color: '#dc2626', marginTop: '2px' }}>
+                      {acct.months.filter(m => m.status === 'missing').map(m => {
+                        const [y, mo] = m.month.split('-');
+                        return new Date(Number(y), Number(mo)-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                      }).join(', ')}
+                    </div>
                   )}
                 </td>
               </tr>
