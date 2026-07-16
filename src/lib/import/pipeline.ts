@@ -69,11 +69,19 @@ export async function runImportPipeline(
   // ─────────────────────────────────────────────────────────────────────────
 
   const batchId = crypto.randomUUID();
-  await db.insert(importBatches).values({
-    id: batchId, userId, institution, accountId, filename,
-    r2Key: `imports/${userId}/${batchId}/${filename}`,
-    status: 'processing',
-  });
+  try {
+    await db.insert(importBatches).values({
+      id: batchId, userId, institution, accountId, filename,
+      r2Key: `imports/${userId}/${batchId}/${filename}`,
+      status: 'processing',
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes('unique_account_period')) {
+      throw new Error(`Already imported: this account already has a statement for ${statementYear}-${String(statementMonth).padStart(2,'0')}. Delete the existing batch first to re-import.`);
+    }
+    throw e;
+  }
 
   try {
     const period = { year: statementYear, month: statementMonth };
