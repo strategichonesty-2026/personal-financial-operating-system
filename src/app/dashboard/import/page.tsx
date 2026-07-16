@@ -57,11 +57,42 @@ interface QueuedFile {
 const fmt = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
+interface RecentBatch {
+  id: string; filename: string; institution: string; status: string;
+  periodStart: string | null; openingBalanceCents: number | null;
+  closingBalanceCents: number | null;
+}
+
 export default function ImportPage() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [bulkDone, setBulkDone] = useState(false);
+  const [recentBatches, setRecentBatches] = useState<RecentBatch[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const loadRecentBatches = async () => {
+    try {
+      const res = await fetch('/api/v1/import');
+      const data = await res.json();
+      if (data.ok) setRecentBatches(data.batches ?? []);
+    } catch {}
+  };
+
+  async function handleDelete(batchId: string) {
+    if (!confirm('Delete this batch and all its transactions?')) return;
+    setDeletingId(batchId);
+    try {
+      const res = await fetch('/api/v1/import/' + batchId, { method: 'DELETE' });
+      if (res.ok) {
+        setRecentBatches(prev => prev.filter(b => b.id !== batchId));
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  useEffect(() => { loadRecentBatches(); }, []);
 
   useEffect(() => {
     const fetchAccounts = () => fetch('/api/v1/accounts').then(r => r.json()).then(data => {
@@ -296,6 +327,43 @@ export default function ImportPage() {
               {item.status === 'error' && <div style={{ fontSize: '0.85rem', color: '#C62828' }}>{item.error}</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {recentBatches.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.2rem', color: '#2E4057', marginBottom: '1rem' }}>Recent Imports</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {recentBatches.map(b => {
+              const period = b.periodStart
+                ? new Date(b.periodStart).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+                : '—';
+              const sc = b.status === 'reconciled'
+                ? { bg: '#dcfce7', color: '#166534' }
+                : b.status === 'done'
+                ? { bg: '#dbeafe', color: '#1e40af' }
+                : { bg: '#f3f4f6', color: '#6b7280' };
+              return (
+                <div key={b.id} style={{ background: '#fff', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: '#2E4057', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.filename}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.2rem' }}>
+                      {INSTITUTION_LABELS[b.institution] ?? b.institution} &middot; {period}
+                      {b.openingBalanceCents != null && ' · Open: ' + fmt(b.openingBalanceCents)}
+                      {b.closingBalanceCents != null && ' → Close: ' + fmt(b.closingBalanceCents)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: sc.bg, color: sc.color }}>{b.status}</span>
+                    <button onClick={() => handleDelete(b.id)} disabled={deletingId === b.id}
+                      style={{ background: '#fff', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                      {deletingId === b.id ? '...' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

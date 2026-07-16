@@ -77,7 +77,7 @@ export async function runImportPipeline(
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes('unique_account_period')) {
+    if (msg.includes('unique_account_period') || msg.includes('unique constraint')) {
       throw new Error(`Already imported: this account already has a statement for ${statementYear}-${String(statementMonth).padStart(2,'0')}. Delete the existing batch first to re-import.`);
     }
     throw e;
