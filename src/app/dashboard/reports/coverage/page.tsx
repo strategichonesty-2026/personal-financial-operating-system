@@ -33,6 +33,9 @@ export default function CoveragePage() {
   const [error, setError]       = useState<string | null>(null);
   const [filter, setFilter]     = useState<'all' | 'missing'>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [uploading, setUploading] = useState<string | null>(null); // month key being uploaded
+  const [uploadStatus, setUploadStatus] = useState<Record<string, 'success' | 'error' | 'duplicate'>>({});
+  const [uploadMsg, setUploadMsg] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -47,6 +50,39 @@ export default function CoveragePage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleUpload(accountId: string, month: string, file: File) {
+    const parts = month.split('-');
+    const yearStr = parts[0] ?? '';
+    const monthStr = parts[1] ?? '';
+    const key = accountId + '-' + month;
+    setUploading(key);
+    setUploadMsg(prev => ({ ...prev, [key]: '' }));
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('accountId', accountId);
+      fd.append('year', yearStr);
+      fd.append('month', String(parseInt(monthStr, 10)));
+      const res  = await fetch('/api/v1/import', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.status === 409) {
+        setUploadStatus(prev => ({ ...prev, [key]: 'duplicate' }));
+        setUploadMsg(prev => ({ ...prev, [key]: 'Already imported' }));
+      } else if (!res.ok || !data.ok) {
+        setUploadStatus(prev => ({ ...prev, [key]: 'error' }));
+        setUploadMsg(prev => ({ ...prev, [key]: data.error || 'Import failed' }));
+      } else {
+        setUploadStatus(prev => ({ ...prev, [key]: 'success' }));
+        await load(); // refresh coverage
+      }
+    } catch (e) {
+      setUploadStatus(prev => ({ ...prev, [key]: 'error' }));
+      setUploadMsg(prev => ({ ...prev, [key]: String(e) }));
+    } finally {
+      setUploading(null);
+    }
+  }
 
   const toggle = (id: string) => setExpanded(prev => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
@@ -169,8 +205,38 @@ export default function CoveragePage() {
                             </td>
                             <td style={{ padding: '0.625rem 1rem', textAlign: 'center' }}>
                               <span style={{ ...statusStyle, fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px' }}>
-                                {statusLabel}
-                              </span>
+                              {statusLabel}
+                            </span>
+                            {missing && (() => {
+                              const key = acct.account_id + '-' + m.month;
+                              const isUploading = uploading === key;
+                              const st = uploadStatus[key];
+                              const msg = uploadMsg[key];
+                              return (
+                                <span style={{ marginLeft: '0.5rem' }}>
+                                  <label style={{ cursor: isUploading ? 'wait' : 'pointer' }}>
+                                    <input type="file" accept=".pdf" style={{ display: 'none' }}
+                                      disabled={isUploading}
+                                      onChange={e => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleUpload(acct.account_id, m.month, f);
+                                        e.target.value = '';
+                                      }} />
+                                    <span style={{
+                                      fontSize: '0.7rem', fontWeight: 600,
+                                      padding: '2px 8px', borderRadius: '99px', cursor: 'pointer',
+                                      background: st === 'success' ? '#dcfce7' : st === 'error' ? '#fee2e2' : '#eff6ff',
+                                      color: st === 'success' ? '#166534' : st === 'error' ? '#dc2626' : '#1d4ed8',
+                                      border: '1px solid',
+                                      borderColor: st === 'success' ? '#86efac' : st === 'error' ? '#fca5a5' : '#93c5fd',
+                                    }}>
+                                      {isUploading ? 'Uploading...' : st === 'success' ? 'Done!' : st === 'error' ? 'Failed' : '↑ Upload'}
+                                    </span>
+                                  </label>
+                                  {msg && <span style={{ fontSize: '0.65rem', color: '#dc2626', marginLeft: '0.25rem' }}>{msg}</span>}
+                                </span>
+                              );
+                            })()}
                             </td>
                           </tr>
                         );
