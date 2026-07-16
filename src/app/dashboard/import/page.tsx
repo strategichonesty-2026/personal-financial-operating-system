@@ -324,7 +324,15 @@ export default function ImportPage() {
                 </div>
               )}
 
-              {item.status === 'error' && <div style={{ fontSize: '0.85rem', color: '#C62828' }}>{item.error}</div>}
+              {item.status === 'error' && (
+                <div style={{ fontSize: '0.85rem', color: '#C62828' }}>
+                  {item.error.includes('Already imported')
+                    ? item.error
+                    : item.error.includes('unique_account_period')
+                    ? 'Already imported: this account already has a statement for this period.'
+                    : item.error}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -355,10 +363,12 @@ export default function ImportPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: sc.bg, color: sc.color }}>{b.status}</span>
-                    <button onClick={() => handleDelete(b.id)} disabled={deletingId === b.id}
-                      style={{ background: '#fff', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
-                      {deletingId === b.id ? '...' : 'Delete'}
-                    </button>
+                    {b.status !== 'reconciled' && (
+                      <button onClick={() => handleDelete(b.id)} disabled={deletingId === b.id}
+                        style={{ background: '#fff', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
+                        {deletingId === b.id ? '...' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
