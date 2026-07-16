@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { sql } from 'drizzle-orm';
 import { importBatches, parserAudit } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
@@ -49,6 +50,20 @@ export async function runImportPipeline(
 
   const parser = getParser(institution);
   if (!parser) throw new Error(`No parser available for institution: ${institution}`);
+
+  // ── DUPLICATE PREVENTION ────────────────────────────────────────────────────
+  const dupStart = `${statementYear}-${String(statementMonth).padStart(2,'0')}-01`;
+  const dupCheck = await db.execute(sql`
+    SELECT id, filename FROM import_batches
+    WHERE user_id    = ${userId}
+      AND account_id = ${accountId}
+      AND period_start::text LIKE ${dupStart + '%'}
+    LIMIT 1
+  `);
+  if (dupCheck.rows.length > 0) {
+    throw new Error(`DUPLICATE: This account already has a statement for ${dupStart.slice(0,7)}. Originally imported as "${dupCheck.rows[0]?.filename}".`);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const batchId = crypto.randomUUID();
   await db.insert(importBatches).values({

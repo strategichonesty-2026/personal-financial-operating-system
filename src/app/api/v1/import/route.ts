@@ -29,34 +29,6 @@ export async function POST(request: NextRequest) {
   if (!yearStr)   return NextResponse.json({ error: 'No year'      }, { status: 400 });
   if (!monthStr)  return NextResponse.json({ error: 'No month'     }, { status: 400 });
 
-  const dupYear  = parseInt(yearStr,  10);
-  const dupMonth = parseInt(monthStr, 10);
-  const dupStart = `${dupYear}-${String(dupMonth).padStart(2,'0')}-01`;
-
-  const { db }  = await import('@/lib/db');
-  const { sql } = await import('drizzle-orm');
-
-  console.log('DUP_CHECK:', JSON.stringify({ userId, accountId, dupStart }));
-  const dupResult = await db.execute(sql`
-    SELECT id, filename FROM import_batches
-    WHERE user_id    = ${userId}
-      AND account_id = ${accountId}
-      AND period_start::text LIKE ${dupStart + '%'}
-    LIMIT 1
-  `);
-
-  if (dupResult.rows.length > 0) {
-    return NextResponse.json(
-      {
-        error:           'duplicate',
-        message:         `This account already has a statement for ${dupStart.slice(0,7)}. Originally imported as "${dupResult.rows[0]?.filename}".`,
-        existingBatchId: dupResult.rows[0]?.id,
-      },
-      { status: 409 }
-    );
-  }
-  // ──────────────────────────────────────────────────────────────────────────
-
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
 
