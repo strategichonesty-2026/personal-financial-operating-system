@@ -60,7 +60,7 @@ const fmt = (cents: number) =>
 interface RecentBatch {
   id: string; filename: string; institution: string; status: string;
   periodStart: string | null; openingBalanceCents: number | null;
-  closingBalanceCents: number | null;
+  closingBalanceCents: number | null; createdAt: string;
 }
 
 export default function ImportPage() {
@@ -75,7 +75,12 @@ export default function ImportPage() {
     try {
       const res = await fetch('/api/v1/import');
       const data = await res.json();
-      if (data.ok) setRecentBatches(data.batches ?? []);
+      if (data.ok) {
+        const filtered = (data.batches ?? [])
+          .filter((b: RecentBatch) => b.status !== 'reconciled')
+          .slice(0, 5);
+        setRecentBatches(filtered);
+      }
     } catch {}
   };
 
@@ -340,7 +345,7 @@ export default function ImportPage() {
 
       {recentBatches.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.2rem', color: '#2E4057', marginBottom: '1rem' }}>Recent Imports</h2>
+          <h2 style={{ fontSize: '1.2rem', color: '#2E4057', marginBottom: '1rem' }}>Recent Imports (last 5)</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {recentBatches.map(b => {
               const period = b.periodStart
@@ -359,6 +364,7 @@ export default function ImportPage() {
                       {INSTITUTION_LABELS[b.institution] ?? b.institution} &middot; {period}
                       {b.openingBalanceCents != null && ' · Open: ' + fmt(b.openingBalanceCents)}
                       {b.closingBalanceCents != null && ' → Close: ' + fmt(b.closingBalanceCents)}
+                      {' · Imported: ' + new Date(b.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
