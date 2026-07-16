@@ -52,16 +52,19 @@ export async function runImportPipeline(
   if (!parser) throw new Error(`No parser available for institution: ${institution}`);
 
   // ── DUPLICATE PREVENTION ────────────────────────────────────────────────────
-  const dupStart = `${statementYear}-${String(statementMonth).padStart(2,'0')}-01`;
+  // Use EXTRACT on period_start to match year+month regardless of day.
+  // Also check status != 'processing' to skip incomplete batches.
   const dupCheck = await db.execute(sql`
     SELECT id, filename FROM import_batches
     WHERE user_id    = ${userId}
       AND account_id = ${accountId}
-      AND period_start::text LIKE ${dupStart + '%'}
+      AND status    != 'processing'
+      AND EXTRACT(YEAR  FROM period_start::date) = ${statementYear}
+      AND EXTRACT(MONTH FROM period_start::date) = ${statementMonth}
     LIMIT 1
   `);
   if (dupCheck.rows.length > 0) {
-    throw new Error(`DUPLICATE: This account already has a statement for ${dupStart.slice(0,7)}. Originally imported as "${dupCheck.rows[0]?.filename}".`);
+    throw new Error(`DUPLICATE: This account already has a statement for ${statementYear}-${String(statementMonth).padStart(2,'0')}. Originally imported as "${dupCheck.rows[0]?.filename}".`);
   }
   // ─────────────────────────────────────────────────────────────────────────
 
