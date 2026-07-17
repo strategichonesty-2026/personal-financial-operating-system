@@ -486,6 +486,21 @@ export async function postStagedTransactions(
         continue;
       }
 
+      // ── SAFETY GUARD: debit and credit must never be the same account ──────
+      // If both sides resolve to the same account, the journal entry is wrong.
+      // Fall back to 6103 Miscellaneous as the contra account instead.
+      if (debitAccountId === creditAccountId) {
+        const miscId = resolveId('6103', accountByCode)!;
+        const bankIsDebit = debitAccountId === bankAccount.id;
+        if (bankIsDebit) {
+          creditAccountId = miscId;
+        } else {
+          debitAccountId = miscId;
+        }
+        result.errors.push(`Same-account entry detected for: ${desc} — routed to 6103 Miscellaneous`);
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
       // 3. Create journal entry
       const entryId = crypto.randomUUID();
       await db.insert(journalEntries).values({
