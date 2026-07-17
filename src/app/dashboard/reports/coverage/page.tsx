@@ -171,9 +171,17 @@ export default function CoveragePage() {
                               {missing ? '—' : dollars(m.closing)}
                             </td>
                             <td style={{ padding: '0.625rem 1rem', textAlign: 'center' }}>
-                              <span style={{ ...statusStyle, fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px' }}>
-                              {statusLabel}
-                            </span>
+                              {!missing ? (
+                                <a href={'/dashboard/reports/ledger?account=' + acct.account_code}
+                                  style={{ ...statusStyle, fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px',
+                                    borderRadius: '99px', textDecoration: 'none', display: 'inline-block' }}>
+                                  {statusLabel} →
+                                </a>
+                              ) : (
+                                <span style={{ ...statusStyle, fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px' }}>
+                                  {statusLabel}
+                                </span>
+                              )}
                             {missing && (
                               <a href="/dashboard/import"
                                 style={{ marginLeft: '0.5rem', fontSize: '0.7rem', fontWeight: 600,

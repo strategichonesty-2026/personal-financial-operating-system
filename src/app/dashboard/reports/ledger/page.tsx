@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface LedgerRow {
   account_id: string; account_code: string; account_name: string;
@@ -76,32 +77,51 @@ function TransactionModal({ batchId, accountId, title, onClose, openingCents, cl
           {!loading && !error && txns.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>No transactions for this period.</div>
           )}
-          {!loading && !error && txns.length > 0 && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-              <thead>
-                <tr style={{ background: '#f9fafb' }}>
-                  {['Date','Description','Debit','Credit'].map((h, i) => (
-                    <th key={h} style={{ padding: '0.625rem 1rem', textAlign: i < 2 ? 'left' : 'right',
-                      fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280',
-                      fontWeight: 500, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {txns.map((t, i) => {
-                  const amt = t.posted_amount_cents ?? t.staged_amount_cents;
-                  return (
-                    <tr key={t.staged_id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
-                      <td style={{ padding: '0.625rem 1rem', color: '#6b7280', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>{fmtDate(t.entry_date ?? t.txn_date)}</td>
-                      <td style={{ padding: '0.625rem 1rem', color: '#111827' }}>{t.description}</td>
-                      <td style={{ padding: '0.625rem 1rem', textAlign: 'right', color: '#2563eb' }}>{t.side === 'debit'  ? dollars(amt) : '—'}</td>
-                      <td style={{ padding: '0.625rem 1rem', textAlign: 'right', color: '#16a34a' }}>{t.side === 'credit' ? dollars(amt) : '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+          {!loading && !error && txns.length > 0 && (() => {
+            const isLiability = accountType === 'liability';
+            let running = openingCents ?? 0;
+            const rows = txns.map(t => {
+              const amt = t.posted_amount_cents ?? t.staged_amount_cents ?? 0;
+              if (isLiability) { running = t.side === 'debit' ? running + amt : running - amt; }
+              else              { running = t.side === 'credit' ? running + amt : running - amt; }
+              return { ...t, runningBalance: running };
+            });
+            return (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f9fafb' }}>
+                  <tr style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280' }}>
+                    <th style={{ padding: '0.5rem 1rem', textAlign: 'left' }}>Date</th>
+                    <th style={{ padding: '0.5rem 1rem', textAlign: 'left' }}>Description</th>
+                    <th style={{ padding: '0.5rem 1rem', textAlign: 'right' }}>Debit</th>
+                    <th style={{ padding: '0.5rem 1rem', textAlign: 'right' }}>Credit</th>
+                    <th style={{ padding: '0.5rem 1rem', textAlign: 'right' }}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ background: '#f0fdf4', borderBottom: '2px solid #bbf7d0' }}>
+                    <td colSpan={4} style={{ padding: '0.5rem 1rem', color: '#15803d', fontWeight: 600, fontSize: '0.75rem' }}>Opening Balance</td>
+                    <td style={{ padding: '0.5rem 1rem', textAlign: 'right', fontWeight: 700, color: '#15803d' }}>{openingCents !== null ? dollars(openingCents) : '—'}</td>
+                  </tr>
+                  {rows.map((t, i) => {
+                    const amt = t.posted_amount_cents ?? t.staged_amount_cents;
+                    return (
+                      <tr key={t.staged_id} style={{ borderTop: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                        <td style={{ padding: '0.5rem 1rem', color: '#6b7280', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>{fmtDate(t.entry_date ?? t.txn_date)}</td>
+                        <td style={{ padding: '0.5rem 1rem', color: '#111827' }}>{t.description}</td>
+                        <td style={{ padding: '0.5rem 1rem', textAlign: 'right', color: '#2563eb' }}>{t.side === 'debit'  ? dollars(amt) : '—'}</td>
+                        <td style={{ padding: '0.5rem 1rem', textAlign: 'right', color: '#16a34a' }}>{t.side === 'credit' ? dollars(amt) : '—'}</td>
+                        <td style={{ padding: '0.5rem 1rem', textAlign: 'right', fontWeight: 500, color: '#374151' }}>{dollars(t.runningBalance)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ borderTop: '2px solid #bfdbfe', background: '#eff6ff' }}>
+                    <td colSpan={4} style={{ padding: '0.5rem 1rem', color: '#1d4ed8', fontWeight: 600, fontSize: '0.75rem' }}>Closing Balance</td>
+                    <td style={{ padding: '0.5rem 1rem', textAlign: 'right', fontWeight: 700, color: '#1d4ed8' }}>{closingCents !== null ? dollars(closingCents) : dollars(running)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -115,6 +135,9 @@ export default function LedgerPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState('all');
   const [modal, setModal] = useState<{ batchId: string; accountId: string; title: string; openingCents: number | null; closingCents: number | null; accountType: string } | null>(null);
+
+  const searchParams = useSearchParams();
+  const highlightCode = searchParams.get('account');
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -132,7 +155,12 @@ export default function LedgerPage() {
       }
       const all = Array.from(map.values());
       setGroups(all);
-      setExpanded(new Set());
+      if (highlightCode) {
+        const match = all.find(g => g.account_code === highlightCode);
+        setExpanded(match ? new Set([match.account_id]) : new Set());
+      } else {
+        setExpanded(new Set());
+      }
     } catch (e) { setError(String(e)); }
     finally { setLoading(false); }
   }, []);

@@ -82,6 +82,10 @@ function ReconciliationPage() {
     }
   }
   const [view, setView] = useState<'list' | 'detail'>('list');
+  const [expandedInst, setExpandedInst] = useState<Set<string>>(new Set());
+  const toggleInst = (inst: string) => setExpandedInst(prev => {
+    const n = new Set(prev); n.has(inst) ? n.delete(inst) : n.add(inst); return n;
+  });
 
   const batchId = searchParams.get('batchId');
 
@@ -158,12 +162,29 @@ function ReconciliationPage() {
           No imported statements yet. <a href="/dashboard/import" style={{ color: '#1d4ed8' }}>Import PDFs →</a>
         </div>
       ) : (
-        Object.entries(grouped).map(([inst, instBatches]) => (
-          <div key={inst} style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#2E4057', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {INST_LABELS[inst] ?? inst}
-            </h2>
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+        Object.entries(grouped).map(([inst, instBatches]) => {
+          const isOpen = expandedInst.has(inst);
+          const reconCount = instBatches.filter(b => b.reconciliation?.status === 'complete').length;
+          return (
+          <div key={inst} style={{ marginBottom: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: 'white' }}>
+            <button onClick={() => toggleInst(inst)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.875rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#2E4057', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {INST_LABELS[inst] ?? inst}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{instBatches.length} statements</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
+                  background: reconCount === instBatches.length ? '#dcfce7' : '#fee2e2',
+                  color: reconCount === instBatches.length ? '#166534' : '#dc2626' }}>
+                  {reconCount}/{instBatches.length} reconciled
+                </span>
+              </div>
+              <span style={{ color: '#9ca3af' }}>{isOpen ? '▲' : '▼'}</span>
+            </button>
+            {isOpen && (
+            <div style={{ borderTop: '1px solid #e5e7eb' }}>
               {instBatches.map((batch, i) => (
                 <div key={batch.id} style={{ display: 'flex', alignItems: 'center', padding: '0.875rem 1rem', borderBottom: i < instBatches.length-1 ? '1px solid #f3f4f6' : 'none', gap: '1rem' }}>
                   <div style={{ flex: 1 }}>
@@ -181,8 +202,10 @@ function ReconciliationPage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
-        ))
+          );
+        })
       )}
     </div>
   );
