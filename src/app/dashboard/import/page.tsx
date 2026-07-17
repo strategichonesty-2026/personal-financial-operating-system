@@ -295,6 +295,20 @@ export default function ImportPage() {
 
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {/* ── Account mismatch warning ── */}
+                    {(() => {
+                      const selectedAccount = accounts.find(a => a.id === item.accountId);
+                      const detectedLast4   = item.detected?.accountLast4;
+                      const mismatch = selectedAccount && detectedLast4
+                        && selectedAccount.last4
+                        && selectedAccount.last4 !== detectedLast4;
+                      return mismatch ? (
+                        <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px',
+                          padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#c2410c' }}>
+                          ⚠️ PDF account ends in <strong>...{detectedLast4}</strong> but selected account ends in <strong>...{selectedAccount.last4}</strong>. Are you sure this is the right account?
+                        </div>
+                      ) : null;
+                    })()}
                     <button onClick={() => handleImportOne(item.id)} disabled={!item.accountId} style={{ ...btnStyle, fontSize: '0.85rem', padding: '0.5rem 1rem', background: item.accountId ? '#2E4057' : '#999' }}>
                       Import this file
                     </button>
