@@ -32,6 +32,10 @@ export default function CoveragePage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [filter, setFilter]     = useState<'all' | 'missing'>('all');
+  const [modal, setModal] = useState<{
+    batchId: string; accountId: string; title: string;
+    openingCents: number | null; closingCents: number | null; accountType: string;
+  } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
 
@@ -160,7 +164,16 @@ export default function CoveragePage() {
                           : { background: '#dbeafe', color: '#1e40af' };
                         const statusLabel  = reconciled ? 'Reconciled' : missing ? '⚠ Missing' : 'Imported';
                         return (
-                          <tr key={m.month} style={{ borderTop: '1px solid #f3f4f6', background: rowBg }}>
+                          <tr key={m.month}
+                            onClick={() => !missing && m.batch_id && setModal({
+                              batchId: m.batch_id, accountId: acct.account_id,
+                              title: acct.account_name + ' — ' + fmtMonth(m.month),
+                              openingCents: m.opening, closingCents: m.closing,
+                              accountType: acct.account_type,
+                            })}
+                            onMouseEnter={e => { if (!missing) e.currentTarget.style.background = '#eff6ff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
+                            style={{ borderTop: '1px solid #f3f4f6', background: rowBg, cursor: missing ? 'default' : 'pointer' }}>
                             <td style={{ padding: '0.625rem 1.25rem', fontWeight: missing ? 400 : 500, color: missing ? '#9ca3af' : '#374151' }}>
                               {fmtMonth(m.month)}
                             </td>
@@ -209,6 +222,91 @@ export default function CoveragePage() {
           All statements imported! Nothing missing.
         </div>
       )}
+      {modal && (
+        <CoverageModal batchId={modal.batchId} accountId={modal.accountId}
+          title={modal.title} onClose={() => setModal(null)}
+          openingCents={modal.openingCents} closingCents={modal.closingCents}
+          accountType={modal.accountType} />
+      )}
+    </div>
+  );
+}
+
+function CoverageModal({ batchId, accountId, title, onClose, openingCents, closingCents, accountType }: {
+  batchId: string; accountId: string; title: string; onClose: () => void;
+  openingCents: number | null; closingCents: number | null; accountType: string;
+}) {
+  const [txns, setTxns]       = useState<{staged_id:string;txn_date:string;description:string;staged_amount_cents:number;side:string|null;posted_amount_cents:number|null;entry_date:string|null}[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string|null>(null);
+  useEffect(() => {
+    fetch('/api/v1/ledger/transactions?batchId=' + batchId + '&accountId=' + accountId)
+      .then(r => r.json()).then(d => setTxns(d.transactions ?? []))
+      .catch(e => setError(String(e))).finally(() => setLoading(false));
+  }, [batchId, accountId]);
+  const fd = (d: string|null) => !d ? '—' : new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+  const $ = (c: number|null) => c===null||c===undefined ? '—' : '$'+(Math.abs(Number(c))/100).toLocaleString('en-US',{minimumFractionDigits:2});
+  return (
+    <div onClick={e=>{if(e.target===e.currentTarget)onClose();}}
+      style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:50,padding:'1rem'}}>
+      <div style={{background:'#fff',borderRadius:'12px',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',width:'100%',maxWidth:'760px',maxHeight:'85vh',display:'flex',flexDirection:'column'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'1rem 1.5rem',borderBottom:'1px solid #e5e7eb'}}>
+          <div>
+            <h2 style={{fontSize:'1rem',fontWeight:600,color:'#111827',margin:0}}>{title}</h2>
+            {!loading && <p style={{fontSize:'0.75rem',color:'#9ca3af',margin:'2px 0 0'}}>{txns.length} transactions</p>}
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'1.5rem',color:'#9ca3af',cursor:'pointer'}}>x</button>
+        </div>
+        <div style={{overflowY:'auto',flex:1}}>
+          {loading && <div style={{padding:'2rem',textAlign:'center',color:'#9ca3af'}}>Loading...</div>}
+          {error   && <div style={{padding:'2rem',textAlign:'center',color:'#dc2626'}}>Error: {error}</div>}
+          {!loading && !error && txns.length === 0 && <div style={{padding:'2rem',textAlign:'center',color:'#9ca3af'}}>No transactions.</div>}
+          {!loading && !error && txns.length > 0 && (()=>{
+            const isLiab = accountType === 'liability';
+            let running = openingCents ?? 0;
+            const rows = txns.map(t => {
+              const amt = t.posted_amount_cents ?? t.staged_amount_cents ?? 0;
+              running = isLiab ? (t.side==='debit' ? running+amt : running-amt) : (t.side==='credit' ? running+amt : running-amt);
+              return {...t, bal: running};
+            });
+            return (
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.85rem'}}>
+                <thead style={{position:'sticky',top:0,background:'#f9fafb'}}>
+                  <tr style={{fontSize:'0.7rem',textTransform:'uppercase',color:'#6b7280'}}>
+                    <th style={{padding:'0.5rem 1rem',textAlign:'left'}}>Date</th>
+                    <th style={{padding:'0.5rem 1rem',textAlign:'left'}}>Description</th>
+                    <th style={{padding:'0.5rem 1rem',textAlign:'right'}}>Debit</th>
+                    <th style={{padding:'0.5rem 1rem',textAlign:'right'}}>Credit</th>
+                    <th style={{padding:'0.5rem 1rem',textAlign:'right'}}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{background:'#f0fdf4',borderBottom:'2px solid #bbf7d0'}}>
+                    <td colSpan={4} style={{padding:'0.5rem 1rem',color:'#15803d',fontWeight:600,fontSize:'0.75rem'}}>Opening Balance</td>
+                    <td style={{padding:'0.5rem 1rem',textAlign:'right',fontWeight:700,color:'#15803d'}}>{$(openingCents)}</td>
+                  </tr>
+                  {rows.map((t,i)=>{
+                    const amt = t.posted_amount_cents ?? t.staged_amount_cents;
+                    return (
+                      <tr key={t.staged_id} style={{borderTop:'1px solid #f3f4f6',background:i%2===0?'#fff':'#f9fafb'}}>
+                        <td style={{padding:'0.5rem 1rem',color:'#6b7280',whiteSpace:'nowrap',fontSize:'0.75rem'}}>{fd(t.entry_date??t.txn_date)}</td>
+                        <td style={{padding:'0.5rem 1rem',color:'#111827'}}>{t.description}</td>
+                        <td style={{padding:'0.5rem 1rem',textAlign:'right',color:'#2563eb'}}>{t.side==='debit' ? $(amt) : '—'}</td>
+                        <td style={{padding:'0.5rem 1rem',textAlign:'right',color:'#16a34a'}}>{t.side==='credit' ? $(amt) : '—'}</td>
+                        <td style={{padding:'0.5rem 1rem',textAlign:'right',fontWeight:500,color:'#374151'}}>{$(t.bal)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{borderTop:'2px solid #bfdbfe',background:'#eff6ff'}}>
+                    <td colSpan={4} style={{padding:'0.5rem 1rem',color:'#1d4ed8',fontWeight:600,fontSize:'0.75rem'}}>Closing Balance</td>
+                    <td style={{padding:'0.5rem 1rem',textAlign:'right',fontWeight:700,color:'#1d4ed8'}}>{closingCents!==null ? $(closingCents) : $(running)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            );
+          })()}
+        </div>
+      </div>
     </div>
   );
 }
