@@ -41,8 +41,9 @@ const STATUS_STYLES: Record<string, { background: string; color: string }> = {
   pending:    { background: '#f3f4f6', color: '#6b7280' },
 };
 
-function TransactionModal({ batchId, accountId, title, onClose }: {
+function TransactionModal({ batchId, accountId, title, onClose, openingCents, closingCents, accountType }: {
   batchId: string; accountId: string; title: string; onClose: () => void;
+  openingCents: number | null; closingCents: number | null; accountType: string;
 }) {
   const [txns, setTxns]       = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +114,7 @@ export default function LedgerPage() {
   const [error, setError]       = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState('all');
-  const [modal, setModal] = useState<{ batchId: string; accountId: string; title: string } | null>(null);
+  const [modal, setModal] = useState<{ batchId: string; accountId: string; title: string; openingCents: number | null; closingCents: number | null; accountType: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -211,7 +212,10 @@ export default function LedgerPage() {
                         return (
                           <tr key={row.batch_id} onClick={() => setModal({
                                 batchId: row.batch_id, accountId: row.account_id,
-                                title: group.account_name + ' — ' + fmtMonth(row.period_start) })}
+                                title: group.account_name + ' — ' + fmtMonth(row.period_start),
+                                openingCents: row.opening_balance_cents,
+                                closingCents: row.closing_balance_cents,
+                                accountType: group.account_type })}
                             style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderTop: '1px solid #f3f4f6',
                                      cursor: 'pointer' }}
                             onMouseEnter={e => (e.currentTarget.style.background = '#eff6ff')}
@@ -239,8 +243,11 @@ export default function LedgerPage() {
         })}
       </div>
 
-      {modal && <TransactionModal batchId={modal.batchId} accountId={modal.accountId}
-        title={modal.title} onClose={() => setModal(null)} />}
+      {modal && <TransactionModal
+        batchId={modal.batchId} accountId={modal.accountId}
+        title={modal.title} onClose={() => setModal(null)}
+        openingCents={modal.openingCents} closingCents={modal.closingCents}
+        accountType={modal.accountType} />}
     </div>
   );
 }
