@@ -83,7 +83,8 @@ export function parseWFCreditCard(
 }
 
 // USB Credit Card parser  
-// Layout: Post Date | Trans Date | Ref# | Description | Amount CR
+// Layout: Post Date | Trans Date | Ref# | Description | Amount [CR]
+// Sections: "Purchases and Other Debits" = debit, "Payments and Other Credits" = credit, "Fees" = debit
 export function parseUSBCreditCard(
   pdf: ExtractedPdf,
   period: StatementPeriod
@@ -97,65 +98,60 @@ export function parseUSBCreditCard(
 
   const txnItems = items.slice(txnHeaderIdx);
 
-  // Group by y coordinate with tolerance
-  const rowMap = new Map<number, typeof items>();
-  for (const item of txnItems) {
-    const yKey = Math.round(item.y * 2) / 2;
-    if (!rowMap.has(yKey)) rowMap.set(yKey, []);
-    rowMap.get(yKey)!.push(item);
+  // Group items into rows with 1.5px tolerance
+  // Items within 1.5px of each other vertically are on the same row
+  const rows: Array<Array<{ x: number; y: number; text: string; page: number }>> = [];
+  const sorted = [...txnItems].sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x);
+
+  for (const item of sorted) {
+    const lastRow = rows[rows.length - 1];
+    const lastY = lastRow?.[0]?.y ?? -999;
+    if (lastRow && Math.abs(item.y - lastY) <= 1.5) {
+      lastRow.push(item);
+    } else {
+      rows.push([item]);
+    }
   }
 
-  const rows = Array.from(rowMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([y, items]) => ({ y, items: items.sort((a, b) => a.x - b.x) }));
+  // Sort each row by x
+  for (const row of rows) row.sort((a, b) => a.x - b.x);
 
-  let i = 0;
-  while (i < rows.length) {
+  let currentSection: 'debit' | 'credit' = 'debit';
+
+  for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
-    const rowItems = row.items;
+    const rowText = row.map(r => r.text.trim()).join(' ');
 
-    // Post date at x~64, format "07" "/" "08" split items
-    const dateItems = rowItems.filter(i => i.x >= 60 && i.x <= 85 && /^\d{2}$/.test(i.text.trim()));
-    if (dateItems.length === 0) { i++; continue; }
+    // Detect section headers
+    if (/purchases and other debits/i.test(rowText) || /^fees$/i.test(rowText.trim())) {
+      currentSection = 'debit';
+      continue;
+    }
+    if (/payments and other credits/i.test(rowText)) {
+      currentSection = 'credit';
+      continue;
+    }
 
-    // Look for slash between date parts
-    const slashItem = rowItems.find(i => i.x >= 74 && i.x <= 85 && i.text.trim() === '/');
-    if (!slashItem) { i++; continue; }
+    // Skip total/header rows
+    if (/^total|^post|^trans|^date|^ref|^transaction|year-to-date|fees charged|interest charged/i.test(rowText)) continue;
 
-    // Reconstruct date from split items: "07" "/" "08"
-    const dateParts = rowItems.filter(i => i.x >= 60 && i.x <= 90).map(i => i.text.trim()).join('');
-    const dateMatch = dateParts.match(/(\d{2})\/(\d{2})/);
-    if (!dateMatch) { i++; continue; }
+    // Date: "12" "/" "29" at x~64-80
+    const dateParts = row.filter(r => r.x >= 60 && r.x <= 90).map(r => r.text.trim()).join('');
+    const dateMatch = dateParts.match(/^(\d{2})\/(\d{2})$/);
+    if (!dateMatch) continue;
 
     const month = parseInt(dateMatch[1]!);
     const day = parseInt(dateMatch[2]!);
 
-    // Amount at x~480+, may have CR on next item
-    const amtItem = rowItems.find(i => i.x >= 475 && /\$[\d,]+\.\d{2}/.test(i.text));
-    if (!amtItem) { i++; continue; }
-
+    // Amount at x~465-490
+    const amtItem = row.find(r => r.x >= 460 && /^\$[\d,]+\.\d{2}$/.test(r.text.trim()));
+    if (!amtItem) continue;
     const amt = parseAmount(amtItem.text);
-    if (amt === null) { i++; continue; }
+    if (!amt) continue;
 
-    // Check for CR suffix — means credit (payment)
-    const crItem = rowItems.find(i => i.x >= 510 && i.text.trim() === 'CR');
-    // Also check next row for CR
-    const nextRowCR = rows[i+1]?.items.find(j => j.x >= 510 && j.text.trim() === 'CR' && Math.abs(j.y - row.y) <= 8);
-    const isCredit = crItem !== undefined || nextRowCR !== undefined;
-
-    // Description at x~172
-    const descItems = rowItems.filter(i => i.x >= 168 && i.x <= 475);
-    let desc = descItems.map(i => i.text).join(' ').trim();
-
-    // Check next row for description continuation
-    if (rows[i+1]) {
-      const nextDesc = rows[i+1]!.items.filter(j => j.x >= 168 && j.x <= 475 && !/^\d{2}$/.test(j.text.trim()));
-      if (nextDesc.length > 0 && !rows[i+1]!.items.some(j => j.x >= 60 && j.x <= 85 && /^\d{2}$/.test(j.text.trim()))) {
-        desc += ' ' + nextDesc.map(j => j.text).join(' ').trim();
-      }
-    }
-
-    if (!desc || /^total/i.test(desc)) { i++; continue; }
+    // Description at x~172-460
+    const desc = row.filter(r => r.x >= 168 && r.x < 460).map(r => r.text.trim()).filter(Boolean).join(' ');
+    if (!desc) continue;
 
     const year = resolveYear(month, period);
     const isoDate = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -164,10 +160,8 @@ export function parseUSBCreditCard(
       date: isoDate,
       rawDescription: desc,
       amountCents: amt,
-      direction: isCredit ? 'credit' : 'debit',
+      direction: currentSection,
     });
-
-    i++;
   }
 
   return results;
