@@ -5,6 +5,7 @@ interface MonthCoverage {
   month: string; status: 'imported' | 'missing';
   batch_id: string | null; opening: number | null;
   closing: number | null; batch_status?: string;
+  period_start?: string | null; period_end?: string | null;
 }
 interface AccountCoverage {
   account_id: string; account_code: string;
@@ -17,6 +18,19 @@ function fmtMonth(m: string): string {
   const [year, month] = m.split('-');
   return new Date(Number(year), Number(month) - 1, 1)
     .toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+function fmtDate(d: string): string {
+  return new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+function fmtDateRange(periodStart: string | null | undefined, periodEnd: string | null | undefined, fallback: string): string {
+  if (!periodStart || !periodEnd) return fallback;
+  const startYear = new Date(periodStart + 'T00:00:00Z').getUTCFullYear();
+  const endYear   = new Date(periodEnd   + 'T00:00:00Z').getUTCFullYear();
+  const start = fmtDate(periodStart);
+  const end   = fmtDate(periodEnd);
+  return startYear === endYear
+    ? `${start} – ${end}, ${endYear}`
+    : `${start}, ${startYear} – ${end}, ${endYear}`;
 }
 function dollars(cents: number | null): string {
   if (cents === null) return '—';
@@ -167,7 +181,7 @@ export default function CoveragePage() {
                           <tr key={m.month}
                             onClick={() => !missing && m.batch_id && setModal({
                               batchId: m.batch_id, accountId: acct.account_id,
-                              title: acct.account_name + ' — ' + fmtMonth(m.month),
+                              title: acct.account_name + ' — ' + fmtDateRange(m.period_start, m.period_end, fmtMonth(m.month)),
                               openingCents: m.opening, closingCents: m.closing,
                               accountType: acct.account_type,
                             })}
@@ -175,7 +189,7 @@ export default function CoveragePage() {
                             onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}
                             style={{ borderTop: '1px solid #f3f4f6', background: rowBg, cursor: missing ? 'default' : 'pointer' }}>
                             <td style={{ padding: '0.625rem 1.25rem', fontWeight: missing ? 400 : 500, color: missing ? '#9ca3af' : '#374151' }}>
-                              {fmtMonth(m.month)}
+                              {missing ? fmtMonth(m.month) : fmtDateRange(m.period_start, m.period_end, fmtMonth(m.month))}
                             </td>
                             <td style={{ padding: '0.625rem 1rem', textAlign: 'right', color: '#6b7280' }}>
                               {missing ? '—' : dollars(m.opening)}

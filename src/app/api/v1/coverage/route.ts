@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
       a.type        AS account_type,
       ib.id         AS batch_id,
       ib.period_start,
+      ib.period_end,
       ib.status     AS batch_status,
       ib.opening_balance_cents,
       ib.closing_balance_cents
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     cur.setUTCMonth(cur.getUTCMonth() + 1);
   }
 
-  const accountMap = new Map<string, { account_id: string; account_code: string; account_name: string; account_type: string; imported: Map<string, { batch_id: string; status: string; opening: number | null; closing: number | null }>; }>();
+  const accountMap = new Map<string, { account_id: string; account_code: string; account_name: string; account_type: string; imported: Map<string, { batch_id: string; status: string; opening: number | null; closing: number | null; period_start: string | null; period_end: string | null }>; }>();
 
   for (const row of rows.rows as Record<string, unknown>[]) {
     const id = row.account_id as string;
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       accountMap.set(id, { account_id: id, account_code: row.account_code as string, account_name: row.account_name as string, account_type: row.account_type as string, imported: new Map() });
     }
     const monthKey = (row.period_start as string).slice(0, 7);
-    accountMap.get(id)!.imported.set(monthKey, { batch_id: row.batch_id as string, status: row.batch_status as string, opening: row.opening_balance_cents as number | null, closing: row.closing_balance_cents as number | null });
+    accountMap.get(id)!.imported.set(monthKey, { batch_id: row.batch_id as string, status: row.batch_status as string, opening: row.opening_balance_cents as number | null, closing: row.closing_balance_cents as number | null, period_start: row.period_start as string | null, period_end: row.period_end as string | null });
   }
 
   const accounts = Array.from(accountMap.values()).map(a => ({
