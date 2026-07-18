@@ -52,6 +52,7 @@ interface QueuedFile {
   accountId: string; institution: string; year: number; month: number;
   result: UploadResult | null; error: string;
   detectedPeriodStart: string | null; detectedPeriodEnd: string | null;
+  mismatchConfirmed: boolean;
 }
 
 const fmt = (cents: number) =>
@@ -70,6 +71,14 @@ export default function ImportPage() {
   const [bulkDone, setBulkDone] = useState(false);
   const [recentBatches, setRecentBatches] = useState<RecentBatch[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [preselectedAccountId, setPreselectedAccountId] = useState<string | null>(null);
+
+  // Read ?accountId= from URL — set by Coverage "↑ Import" button
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const aid = params.get('accountId');
+    if (aid) setPreselectedAccountId(aid);
+  }, []);
 
   const loadRecentBatches = async () => {
     try {
@@ -142,6 +151,7 @@ export default function ImportPage() {
       year: new Date().getFullYear(), month: new Date().getMonth() + 1,
       result: null, error: '',
       detectedPeriodStart: null, detectedPeriodEnd: null,
+      mismatchConfirmed: false,
     }));
     setQueue(prev => [...prev, ...newItems]);
     for (const item of newItems) {
@@ -157,9 +167,11 @@ export default function ImportPage() {
         // Auto-match by institution + last4 (most specific), then last4 only
         let matchedAccount = localAccounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
         if (!matchedAccount) matchedAccount = localAccounts.find(a => a.last4 === detected.accountLast4);
+        // Use preselected account from URL if no match found from PDF detection
+        const resolvedAccountId = matchedAccount?.id ?? preselectedAccountId ?? '';
         updateFile(item.id, {
           status: 'needs_confirm', detected,
-          accountId: matchedAccount?.id ?? '',
+          accountId: resolvedAccountId,
           institution: detected.institution ?? '',
           year: detected.year ?? new Date().getFullYear(),
           month: detected.month ?? new Date().getMonth() + 1,
@@ -287,35 +299,52 @@ export default function ImportPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                     <div>
                       <label style={labelStyle}>Account</label>
-                      <select value={item.accountId} onChange={e => updateFile(item.id, { accountId: e.target.value })} style={inputStyle}>
+                      <select value={item.accountId} onChange={e => updateFile(item.id, { accountId: e.target.value, mismatchConfirmed: false })} style={inputStyle}>
                         <option value="">— Select —</option>
                         {accounts.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
                       </select>
                     </div>
 
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {/* ── Account mismatch warning ── */}
-                    {(() => {
-                      const selectedAccount = accounts.find(a => a.id === item.accountId);
-                      const detectedLast4   = item.detected?.accountLast4;
-                      const mismatch = selectedAccount && detectedLast4
-                        && selectedAccount.last4
-                        && selectedAccount.last4 !== detectedLast4;
-                      return mismatch ? (
-                        <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px',
-                          padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#c2410c' }}>
-                          ⚠️ PDF account ends in <strong>...{detectedLast4}</strong> but selected account ends in <strong>...{selectedAccount.last4}</strong>. Are you sure this is the right account?
+                  {/* ── Account mismatch hard block ── */}
+                  {(() => {
+                    const selectedAccount = accounts.find(a => a.id === item.accountId);
+                    const detectedLast4   = item.detected?.accountLast4;
+                    const hasMismatch = !!(selectedAccount && detectedLast4
+                      && selectedAccount.last4
+                      && selectedAccount.last4 !== detectedLast4);
+                    const canImport = !!item.accountId && (!hasMismatch || item.mismatchConfirmed);
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {hasMismatch && (
+                          <div style={{ background: '#fef2f2', border: '2px solid #fca5a5', borderRadius: '8px', padding: '0.75rem 1rem' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: 600, marginBottom: '0.5rem' }}>
+                              🚫 Account mismatch — import blocked
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#7f1d1d', marginBottom: '0.75rem' }}>
+                              PDF shows account ending in <strong>...{detectedLast4}</strong> but you selected an account ending in <strong>...{selectedAccount?.last4}</strong>. Please select the correct account, or confirm below if you are sure.
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#991b1b', cursor: 'pointer' }}>
+                              <input type="checkbox"
+                                checked={item.mismatchConfirmed}
+                                onChange={e => updateFile(item.id, { mismatchConfirmed: e.target.checked })}
+                              />
+                              I confirm this is the correct account despite the mismatch
+                            </label>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button onClick={() => handleImportOne(item.id)} disabled={!canImport}
+                            style={{ ...btnStyle, fontSize: '0.85rem', padding: '0.5rem 1rem', background: canImport ? '#2E4057' : '#9ca3af', cursor: canImport ? 'pointer' : 'not-allowed' }}>
+                            Import this file
+                          </button>
+                          <button onClick={() => removeFile(item.id)} style={{ ...btnStyle, background: '#fff', color: '#999', border: '1px solid #E0E0E0', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                            Remove
+                          </button>
                         </div>
-                      ) : null;
-                    })()}
-                    <button onClick={() => handleImportOne(item.id)} disabled={!item.accountId} style={{ ...btnStyle, fontSize: '0.85rem', padding: '0.5rem 1rem', background: item.accountId ? '#2E4057' : '#999' }}>
-                      Import this file
-                    </button>
-                    <button onClick={() => removeFile(item.id)} style={{ ...btnStyle, background: '#fff', color: '#999', border: '1px solid #E0E0E0', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
-                      Remove
-                    </button>
-                  </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
