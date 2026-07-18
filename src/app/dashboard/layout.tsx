@@ -1,4 +1,5 @@
 import { UserButton } from '@clerk/nextjs';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,11 +13,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <a href="/dashboard/reports/trial-balance" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Summary</a>
           <a href="/dashboard/reports/ledger" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Transactions</a>
           <a href="/dashboard/reports/coverage" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>My Statements</a>
+          <a href="/dashboard/admin" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', textDecoration: 'none' }}>Admin</a>
         </div>
         <UserButton afterSignOutUrl="/sign-in" />
       </nav>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );
