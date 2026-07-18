@@ -278,19 +278,19 @@ const DESCRIPTION_RULES: PostingRule[] = [
 
   { pattern: /wfcu direct db/i,              debitCode: '6121', creditCode: '1011' },
   // SYNCHRONY / SAM'S CLUB
-  { pattern: /online payment thank you/i,    isCCPayment: true, liabilityCode: '2015' },
+  { pattern: /online payment thank you/i,    isCCPayment: true, liabilityCode: '2011' },
   { pattern: /online payment, thank you/i,      isCCPayment: true, liabilityCode: '2013' },
   { pattern: /automatic payment - thank you/i,   isCCPayment: true, liabilityCode: '2012' },
-  { pattern: /sam's club \d+/i,             debitCode: '5021', creditCode: '2015' },
-  { pattern: /google.*google one/i,          debitCode: '6035', creditCode: '2015' },
-  { pattern: /interest charge/i,             debitCode: '5081', creditCode: '2015' },
+  { pattern: /sam's club \d+/i,             debitCode: '5021', creditCode: '2011' },
+  { pattern: /google.*google one/i,          debitCode: '6035', creditCode: '2011' },
+  { pattern: /interest charge/i,             debitCode: '5081', creditCode: '2011' },
   // INTEREST CHARGES (all credit cards — debit to interest expense 5081)
   { pattern: /purchase interest charge/i,    debitCode: '5046', creditCode: '2012' },
   { pattern: /interest charge on purchases/i,debitCode: '5046', creditCode: '2013' },
   { pattern: /interest charge on cash/i,     debitCode: '5046', creditCode: '2013' },
   { pattern: /interest charge/i,             debitCode: '5046', creditCode: '2012' },
-  { pattern: /periodic rate/i,               debitCode: '5046', creditCode: '2015' },
-  { pattern: /minimum interest/i,            debitCode: '5046', creditCode: '2015' },
+  { pattern: /periodic rate/i,               debitCode: '5046', creditCode: '2011' },
+  { pattern: /minimum interest/i,            debitCode: '5046', creditCode: '2011' },
   // CC PAYMENTS
   { pattern: /chase credit crd epay/i,       isCCPayment: true, liabilityCode: '2012' },
   { pattern: /citi card online payment/i,    isCCPayment: true, liabilityCode: '2013' },
