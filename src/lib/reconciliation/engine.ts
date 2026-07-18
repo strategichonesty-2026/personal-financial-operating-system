@@ -162,9 +162,17 @@ export async function runReconciliation(input: ReconcileInput): Promise<Reconcil
 
   // Asset:     Opening + Credits - Debits = Closing
   // Liability: Opening + Debits - Credits = Closing (purchases increase balance, payments reduce it)
+  // If no statement transactions but ledger has entries (e.g. CC paid from checking),
+  // use ledger totals for balance calculation instead
+  const effectiveCreditsCents = statementTransactions.length === 0 && ledgerItems.length > 0
+    ? ledgerItems.filter(l => l.direction === 'credit').reduce((s,l) => s+l.amountCents, 0)
+    : statementCreditsCents;
+  const effectiveDebitsCents = statementTransactions.length === 0 && ledgerItems.length > 0
+    ? ledgerItems.filter(l => l.direction === 'debit').reduce((s,l) => s+l.amountCents, 0)
+    : statementDebitsCents;
   const calculatedBalanceCents = isLiability
-    ? openingBalanceCents + statementDebitsCents - statementCreditsCents
-    : openingBalanceCents + statementCreditsCents - statementDebitsCents;
+    ? openingBalanceCents + effectiveDebitsCents - effectiveCreditsCents
+    : openingBalanceCents + effectiveCreditsCents - effectiveDebitsCents;
   const differenceCents = calculatedBalanceCents - closingBalanceCents;
 
   // L2 matching
