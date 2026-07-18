@@ -3,7 +3,7 @@ import {
   journalEntries, journalEntryLines,
   reconciliations, reconciliationItems, accounts,
 } from '@/lib/db/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
 
 export interface StatementTransaction {
   description: string;
@@ -216,7 +216,18 @@ export async function runReconciliation(input: ReconcileInput): Promise<Reconcil
   const confidenceScore = calcConfidence(statementTransactions.length, matchedCount, differenceCents, suggestions);
   const status = differenceCents === 0 ? 'complete' : 'flagged';
 
-  // L6 — save
+  // L6 — save (upsert: delete existing record for same account+period first)
+  const existing = await db.execute(sql`
+    SELECT id FROM reconciliations
+    WHERE account_id = ${accountId}
+      AND period_start = ${start}
+    LIMIT 1
+  `);
+  if (existing.rows.length > 0) {
+    const existingId = existing.rows[0]!.id as string;
+    await db.execute(sql`DELETE FROM reconciliation_items WHERE reconciliation_id = ${existingId}`);
+    await db.execute(sql`DELETE FROM reconciliations WHERE id = ${existingId}`);
+  }
   const reconciliationId = crypto.randomUUID();
   await db.insert(reconciliations).values({
     id: reconciliationId, accountId,
