@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const INSTITUTION_LABELS: Record<string, string> = {
   wells_fargo: 'Wells Fargo',
@@ -71,13 +71,13 @@ export default function ImportPage() {
   const [bulkDone, setBulkDone] = useState(false);
   const [recentBatches, setRecentBatches] = useState<RecentBatch[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [preselectedAccountId, setPreselectedAccountId] = useState<string | null>(null);
+  const preselectedAccountRef = useRef<string | null>(null);
 
   // Read ?accountId= from URL — set by Coverage "↑ Import" button
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const aid = params.get('accountId');
-    if (aid) setPreselectedAccountId(aid);
+    if (aid) preselectedAccountRef.current = aid;
   }, []);
 
   const loadRecentBatches = async () => {
@@ -168,7 +168,7 @@ export default function ImportPage() {
         let matchedAccount = localAccounts.find(a => a.last4 === detected.accountLast4 && a.inst === detected.institution);
         if (!matchedAccount) matchedAccount = localAccounts.find(a => a.last4 === detected.accountLast4);
         // Use preselected account from URL if no match found from PDF detection
-        const resolvedAccountId = matchedAccount?.id ?? preselectedAccountId ?? '';
+        const resolvedAccountId = matchedAccount?.id ?? preselectedAccountRef.current ?? '';
         updateFile(item.id, {
           status: 'needs_confirm', detected,
           accountId: resolvedAccountId,
