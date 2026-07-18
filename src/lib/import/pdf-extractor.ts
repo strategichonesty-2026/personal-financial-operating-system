@@ -220,6 +220,30 @@ export async function extractPdfText(
       }
     }
 
+    // USB Credit Card: "Open Date: 06/12/2026" and "Closing Date: 07/14/2026"
+    // Dates are split as separate items: "06" "/" "12" "/" "20" "26"
+    if (!periodStart || !periodEnd) {
+      const openIdx = items.findIndex(i => /^open date:?$/i.test(i.text.trim()));
+      const closeIdx = items.findIndex(i => /^closing date:?$/i.test(i.text.trim()));
+      if (openIdx >= 0 && closeIdx >= 0) {
+        const openLabel = items[openIdx]!;
+        const closeLabel = items[closeIdx]!;
+        // Get all items on same row after the label, reconstruct date string
+        const openRow = items.filter(i =>
+          i.page === openLabel.page && Math.abs(i.y - openLabel.y) <= 3 &&
+          i.x > openLabel.x && i.x < closeLabel.x
+        ).sort((a,b) => a.x-b.x).map(i => i.text.trim()).join('');
+        const closeRow = items.filter(i =>
+          i.page === closeLabel.page && Math.abs(i.y - closeLabel.y) <= 3 &&
+          i.x > closeLabel.x
+        ).sort((a,b) => a.x-b.x).map(i => i.text.trim()).join('');
+        const openM = openRow.match(/(\d{2})\/(\d{2})\/(\d{2})(\d{2})/);
+        const closeM = closeRow.match(/(\d{2})\/(\d{2})\/(\d{2})(\d{2})/);
+        if (openM) periodStart = `${openM[3]}${openM[4]}-${openM[1]}-${openM[2]}`;
+        if (closeM) periodEnd = `${closeM[3]}${closeM[4]}-${closeM[1]}-${closeM[2]}`;
+      }
+    }
+
     // BofA checking/savings: "for December 20, 2025 to January 21, 2026"
     if (!periodStart || !periodEnd) {
       const m = text.match(/for\s+(\w+ \d+,\s*\d{4})\s+to\s+(\w+ \d+,\s*\d{4})/i);
