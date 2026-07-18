@@ -210,7 +210,7 @@ export default function CoveragePage() {
                                 </span>
                               )}
                             {missing && (
-                              <a href="/dashboard/import"
+                              <a href={`/dashboard/import?accountId=${acct.account_id}`}
                                 style={{ marginLeft: '0.5rem', fontSize: '0.7rem', fontWeight: 600,
                                   padding: '2px 8px', borderRadius: '99px', cursor: 'pointer',
                                   background: '#eff6ff', color: '#1d4ed8',
