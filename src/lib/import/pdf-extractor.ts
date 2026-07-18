@@ -90,6 +90,21 @@ export async function extractPdfText(
       }
     }
 
+    // USB Credit Card: "Ending in" label + "#### #### #### 0546" on same row
+    if (!accountLast4) {
+      const endingInItem = items.find(i => /^ending in$/i.test(i.text.trim()));
+      if (endingInItem) {
+        const sameRow = items.filter(i =>
+          i.page === endingInItem.page && Math.abs(i.y - endingInItem.y) <= 3 && i.x > endingInItem.x
+        );
+        const maskedItem = sameRow.sort((a,b) => a.x-b.x).find(i => /\d{4}$/.test(i.text.trim()));
+        if (maskedItem) {
+          const m = maskedItem.text.trim().match(/(\d{4})$/);
+          if (m) accountLast4 = m[1]!;
+        }
+      }
+    }
+
     // Citi: "Account number ending in: 4621" as single item
     if (!accountLast4) {
       const citiAcct = items.find(i => /account number ending in:/i.test(i.text));
@@ -240,7 +255,8 @@ export function detectInstitution(text: string): string | null {
   const t = text.toUpperCase();
   if (t.includes('BANK OF AMERICA') || t.includes('BANKOFAMERICA'))  return 'bofa';
   if (t.includes('UNI-STATEMENT') || t.includes('800-US BANKS') ||
-      t.includes('USBANK') || t.includes('U.S. BANK'))           return 'us_bank';
+      t.includes('USBANK') || t.includes('U.S. BANK') ||
+      /U\.S\.\s*BANK\s*SHIELD/i.test(text) || t.includes('CARDMEMBER SERVICE'))  return 'us_bank';
   if (t.includes('CITICARDS') || t.includes('COSTCO ANYWHERE VISA')) return 'citi';
   if (t.includes('SYNCHRONY'))                                    return 'synchrony';
   if (t.includes('WELLS FARGO'))                                  return 'wells_fargo';
