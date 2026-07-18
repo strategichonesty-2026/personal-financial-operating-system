@@ -114,6 +114,15 @@ export async function extractPdfText(
       }
     }
 
+    // WF Credit Card: "Account ending in 6317" as single text item
+    if (!accountLast4) {
+      const wfCCAcct = items.find(i => /^account ending in \d{4}$/i.test(i.text.trim()));
+      if (wfCCAcct) {
+        const m = wfCCAcct.text.trim().match(/(\d{4})$/);
+        if (m) accountLast4 = m[1]!;
+      }
+    }
+
     // Fallback: extract last4 from PDF "Account ending XXXX" or "ending in XXXX"
     if (!accountLast4) {
       const endingIdx = items.findIndex(i => /^ending(\s+in)?$/i.test(i.text.trim()));
@@ -181,6 +190,18 @@ export async function extractPdfText(
           const yr1 = 2000+parseInt(m[3]!), yr2 = 2000+parseInt(m[6]!);
           periodStart = `${yr1}-${m[1]}-${m[2]}`;
           periodEnd   = `${yr2}-${m[4]}-${m[5]}`;
+        }
+      }
+    }
+
+    // WF Credit Card: "Statement Period 06/06/2026 to 07/07/2026" as single item
+    if (!periodStart || !periodEnd) {
+      const wfCCPeriod = items.find(i => /^statement period/i.test(i.text.trim()));
+      if (wfCCPeriod) {
+        const m = wfCCPeriod.text.match(/(\d{2})\/(\d{2})\/(\d{4})\s+to\s+(\d{2})\/(\d{2})\/(\d{4})/);
+        if (m) {
+          periodStart = `${m[3]}-${m[1]}-${m[2]}`;
+          periodEnd   = `${m[6]}-${m[4]}-${m[5]}`;
         }
       }
     }
