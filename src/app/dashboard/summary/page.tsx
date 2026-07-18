@@ -22,8 +22,8 @@ type Summary = {
 
 export default function SummaryPage() {
   const [data, setData] = useState<Summary | null>(null);
-  const [showBanks, setShowBanks] = useState(true);
-  const [showCards, setShowCards] = useState(true);
+  const [showBanks, setShowBanks] = useState(false);
+  const [showCards, setShowCards] = useState(false);
 
   useEffect(() => {
     fetch('/api/v1/summary').then(r => r.json()).then(setData);
