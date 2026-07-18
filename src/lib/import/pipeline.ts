@@ -180,7 +180,9 @@ export async function runImportPipeline(
         status: 'error', errorMessage: String(err),
       });
     } catch { /* don't mask original error */ }
-    await db.update(importBatches).set({ status: 'error', errorMessage: String(err), updatedAt: new Date() }).where(eq(importBatches.id, batchId));
+    // Delete the failed batch entirely — error batches with NULL period_start
+    // cause duplicate check bypass and clutter the reconcile tab.
+    await db.delete(importBatches).where(eq(importBatches.id, batchId));
     throw err;
   }
 }
