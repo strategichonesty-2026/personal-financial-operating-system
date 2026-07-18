@@ -10,7 +10,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <a href="/dashboard/import" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Upload</a>
           <a href="/dashboard/review" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Review</a>
           <a href="/dashboard/reconciliation" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Check Statements</a>
-          <a href="/dashboard/reports/trial-balance" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Summary</a>
+          <a href="/dashboard/summary" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Summary</a>
+          <a href="/dashboard/reports/trial-balance" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', textDecoration: 'none' }}>Trial Balance</a>
           <a href="/dashboard/reports/ledger" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>Transactions</a>
           <a href="/dashboard/reports/coverage" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', textDecoration: 'none' }}>My Statements</a>
           <a href="/dashboard/admin" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', textDecoration: 'none' }}>Admin</a>
