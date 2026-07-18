@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
 import { getParser } from './parsers';
 import { parseWellsFargo } from './parsers/wells-fargo';
+import type { ExtractedPdf } from './pdf-extractor';
+import type { StatementPeriod, ParsedTransaction } from './parsers/types';
 import { parseCiti }       from './parsers/citi';
 import { parseSynchrony }  from './parsers/synchrony';
 import { parseChase }      from './parsers/chase';
@@ -85,18 +87,28 @@ export async function runImportPipeline(
 
   try {
     const period = { year: statementYear, month: statementMonth };
-    const coordinateParsers: Record<string, typeof parseWellsFargo> = {
-      wells_fargo: parseWellsFargo,
+    type CoordinateParser = (pdf: ExtractedPdf, period: StatementPeriod) => ParsedTransaction[];
+    const coordinateParsers: Record<string, CoordinateParser> = {
       bofa:         (pdf, period) => parseBofa(pdf, period, filename.match(/(\d{4})/)?.[1]),
       citi:        parseCiti,
       synchrony:   parseSynchrony,
       chase:       parseChase,
       us_bank:     parseUSBank,
     };
-    const coordinateParser = coordinateParsers[institution];
-    const parsed = coordinateParser
-      ? coordinateParser(extracted, period)
-      : parser.parse(extracted.text, period);
+    let statementDepositsCents: number | null = null;
+    let statementWithdrawalsCents: number | null = null;
+    let parsed: ParsedTransaction[];
+    if (institution === 'wells_fargo') {
+      const wfResult = parseWellsFargo(extracted, period);
+      parsed = wfResult.transactions;
+      statementDepositsCents = wfResult.statementDepositsCents;
+      statementWithdrawalsCents = wfResult.statementWithdrawalsCents;
+    } else {
+      const coordinateParser = coordinateParsers[institution];
+      parsed = coordinateParser
+        ? coordinateParser(extracted, period)
+        : parser.parse(extracted.text, period);
+    }
 
     const patterns = await loadPatterns();
     const normalized = parsed.map(txn => normalizeTransaction(txn, patterns));
@@ -125,6 +137,8 @@ export async function runImportPipeline(
           parsed,
           openingBalanceCents: balances.openingBalanceCents,
           closingBalanceCents: balances.closingBalanceCents,
+          statementDepositsCents,
+          statementWithdrawalsCents,
           inserted,
           duplicates,
         });

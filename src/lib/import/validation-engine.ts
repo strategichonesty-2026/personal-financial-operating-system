@@ -60,6 +60,8 @@ export interface ValidationInput {
   periodEnd?: string | null;
   inserted: number;
   duplicates: number;
+  statementDepositsCents?: number | null;
+  statementWithdrawalsCents?: number | null;
 }
 
 export function validateImport(input: ValidationInput): ValidationResult {
@@ -162,6 +164,28 @@ export function validateImport(input: ValidationInput): ValidationResult {
       message: 'No transactions were parsed from this PDF. Parser may not support this statement format.',
       severity: 'error',
     });
+  }
+
+  // Rule 5: Compare parsed totals against PDF-stated totals (WF only)
+  if (input.statementDepositsCents !== null && input.statementDepositsCents !== undefined) {
+    if (creditTotalCents !== input.statementDepositsCents) {
+      const diff = (Math.abs(creditTotalCents - input.statementDepositsCents) / 100).toFixed(2);
+      warnings.push({
+        code: 'DEPOSIT_TOTAL_MISMATCH',
+        message: `Parser may have missed transactions. PDF states $${(input.statementDepositsCents/100).toFixed(2)} deposits but parsed $${(creditTotalCents/100).toFixed(2)}. Difference: $${diff}. Check PDF for multi-line descriptions.`,
+        severity: 'error',
+      });
+    }
+  }
+  if (input.statementWithdrawalsCents !== null && input.statementWithdrawalsCents !== undefined) {
+    if (debitTotalCents !== input.statementWithdrawalsCents) {
+      const diff = (Math.abs(debitTotalCents - input.statementWithdrawalsCents) / 100).toFixed(2);
+      warnings.push({
+        code: 'WITHDRAWAL_TOTAL_MISMATCH',
+        message: `Parser may have missed transactions. PDF states $${(input.statementWithdrawalsCents/100).toFixed(2)} withdrawals but parsed $${(debitTotalCents/100).toFixed(2)}. Difference: $${diff}. Check PDF for multi-line descriptions.`,
+        severity: 'error',
+      });
+    }
   }
 
   const hasErrors = warnings.some(w => w.severity === 'error');

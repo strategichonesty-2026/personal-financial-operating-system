@@ -49,8 +49,10 @@ function groupByRow(items: PdfTextItem[]): PdfTextItem[][] {
 export function parseWellsFargo(
   pdf: ExtractedPdf,
   period: StatementPeriod
-): ParsedTransaction[] {
+): { transactions: ParsedTransaction[]; statementDepositsCents: number | null; statementWithdrawalsCents: number | null } {
   const results: ParsedTransaction[] = [];
+  let statementDepositsCents: number | null = null;
+  let statementWithdrawalsCents: number | null = null;
   const rows = groupByRow(pdf.items);
 
   for (const row of rows) {
@@ -89,6 +91,17 @@ export function parseWellsFargo(
       continue;
     }
 
+    // Totals row: detect "Totals" in desc area, extract dep/wd amounts
+    const isTotalsRow = descItems.some(i => i.text.trim() === 'Totals') ||
+                        dateItems.some(i => i.text.trim() === 'Totals');
+    if (isTotalsRow) {
+      const depAmt = depItems.map(i => parseAmount(i.text)).find(v => v !== null) ?? null;
+      const wdAmt  = wdItems.map(i => parseAmount(i.text)).find(v => v !== null) ?? null;
+      if (depAmt !== null) statementDepositsCents = depAmt;
+      if (wdAmt !== null) statementWithdrawalsCents = wdAmt;
+      continue;
+    }
+
     if (!dateItems.length) continue;
     const dateText = dateItems[0]?.text ?? '';
     if (!DATE_RE.test(dateText)) continue;
@@ -122,7 +135,7 @@ export function parseWellsFargo(
     });
   }
 
-  return results;
+  return { transactions: results, statementDepositsCents, statementWithdrawalsCents };
 }
 
 export const WellsFargoParser: StatementParser = {
