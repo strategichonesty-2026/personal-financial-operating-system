@@ -112,16 +112,22 @@ export async function runImportPipeline(
     // Extract opening/closing balances from PDF text
     const balances = extractBalances(extracted, institution, filename);
 
+    // If all transactions are duplicates, skip validation — data already exists
+    // from a prior import. Mark as done immediately.
+    const allDuplicates = inserted === 0 && duplicates > 0;
+
     // Run import validation — catch parser errors early
-    const validation = validateImport({
-      institution,
-      filename,
-      parsed,
-      openingBalanceCents: balances.openingBalanceCents,
-      closingBalanceCents: balances.closingBalanceCents,
-      inserted,
-      duplicates,
-    });
+    const validation = allDuplicates
+      ? { valid: true, warnings: [{ code: 'ALL_DUPLICATES', message: `All ${duplicates} transactions already imported.`, severity: 'info' }] }
+      : validateImport({
+          institution,
+          filename,
+          parsed,
+          openingBalanceCents: balances.openingBalanceCents,
+          closingBalanceCents: balances.closingBalanceCents,
+          inserted,
+          duplicates,
+        });
 
     // Use extracted period dates from PDF; fall back to filename year only
     const filenameYear = filename.match(/20(\d{2})/)?.[0] ?? String(statementYear);
