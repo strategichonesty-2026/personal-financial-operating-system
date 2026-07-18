@@ -11,22 +11,12 @@ interface BatchMeta {
   reconciliation: { status: string; differenceCents: number; confidenceScore: number; createdAt: string } | null;
 }
 
-interface Account { id: string; code: string; name: string; type: string; }
+interface Account { id: string; code: string; name: string; type: string; institution: string | null; }
 
-const INST_LABELS: Record<string, string> = {
-  wells_fargo: 'Wells Fargo', us_bank: 'U.S. Bank', citi: 'Citi',
-  synchrony: 'Synchrony', chase: 'Chase', bofa: 'BofA',
-};
+const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const fmt = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-
-function statusBadge(batch: BatchMeta) {
-  const r = batch.reconciliation;
-  if (!r) return <span style={{ color: '#6b7280', background: '#f3f4f6', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem' }}>Not reconciled</span>;
-  if (r.status === 'complete') return <span style={{ color: '#16a34a', background: '#f0fdf4', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>✅ Reconciled</span>;
-  return <span style={{ color: '#d97706', background: '#fffbeb', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600 }}>⚠️ Review ({fmt(Math.abs(r.differenceCents))} diff)</span>;
-}
 
 function dedupBatches(batches: BatchMeta[]): BatchMeta[] {
   const seen = new Set<string>();
@@ -38,21 +28,36 @@ function dedupBatches(batches: BatchMeta[]): BatchMeta[] {
   });
 }
 
+// Returns { year-month: batch } map for an account's batches
+function batchByMonth(batches: BatchMeta[]): Record<string, BatchMeta> {
+  const map: Record<string, BatchMeta> = {};
+  for (const b of batches) {
+    if (!b.periodStart) continue;
+    const d = new Date(b.periodStart);
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2,'0')}`;
+    map[key] = b;
+  }
+  return map;
+}
+
 function ReconciliationPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [batches, setBatches] = useState<BatchMeta[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reconRunning, setReconRunning] = useState<string | null>(null);
   const [postReconRunning, setPostReconRunning] = useState(false);
   const [postReconResult, setPostReconResult] = useState<string | null>(null);
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+
+  const toggleAccount = (accountId: string) => setExpandedAccounts(prev => {
+    const n = new Set(prev); n.has(accountId) ? n.delete(accountId) : n.add(accountId); return n;
+  });
 
   async function handlePostAndReconcileAll() {
     setPostReconRunning(true);
     setPostReconResult(null);
     try {
-      // Step 1: Post all pending batches
       const batchRes = await fetch('/api/v1/import/batches');
       const batchData = await batchRes.json();
       const pending = (batchData.batches ?? []).filter((b: any) => b.pendingCount > 0);
@@ -63,7 +68,6 @@ function ReconciliationPage() {
           body: JSON.stringify({ batchId: batch.id }),
         });
       }
-      // Step 2: Reconcile all
       const reconRes = await fetch('/api/v1/reconcile-all', { method: 'POST' });
       const reconData = await reconRes.json();
       if (reconData.ok) {
@@ -71,7 +75,6 @@ function ReconciliationPage() {
       } else {
         setPostReconResult('Error: ' + reconData.error);
       }
-      // Refresh batches
       fetch('/api/v1/import/batches').then(r => r.json()).then(d => {
         if (d.batches) setBatches(dedupBatches(d.batches));
       });
@@ -81,16 +84,11 @@ function ReconciliationPage() {
       setPostReconRunning(false);
     }
   }
-  const [view, setView] = useState<'list' | 'detail'>('list');
-  const [expandedInst, setExpandedInst] = useState<Set<string>>(new Set());
-  const toggleInst = (inst: string) => setExpandedInst(prev => {
-    const n = new Set(prev); n.has(inst) ? n.delete(inst) : n.add(inst); return n;
-  });
 
   const batchId = searchParams.get('batchId');
 
   useEffect(() => {
-    if (batchId) { setView('detail'); return; }
+    if (batchId) return;
     fetch('/api/v1/import/batches').then(r => r.json()).then(d => {
       if (d.batches) setBatches(dedupBatches(d.batches));
     }).finally(() => setLoading(false));
@@ -99,36 +97,62 @@ function ReconciliationPage() {
     });
   }, [batchId]);
 
-  if (view === 'detail' || batchId) {
+  if (batchId) {
     const sp = searchParams;
     return <DetailView
-      batchId={batchId!}
+      batchId={batchId}
       initialAccountId={sp.get('accountId') ?? ''}
       initialPeriodStart={sp.get('periodStart') ?? ''}
       initialPeriodEnd={sp.get('periodEnd') ?? ''}
       initialOpening={sp.get('opening') ?? ''}
       initialClosing={sp.get('closing') ?? ''}
-      onBack={() => { router.push('/dashboard/reconciliation'); setView('list'); }}
+      onBack={() => router.push('/dashboard/reconciliation')}
     />;
   }
 
-  const grouped = batches.reduce((acc, b) => {
-    const key = b.institution ?? 'unknown';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(b);
-    return acc;
-  }, {} as Record<string, BatchMeta[]>);
+  // Group batches by accountId
+  const byAccount: Record<string, BatchMeta[]> = {};
+  for (const b of batches) {
+    if (!byAccount[b.accountId]) byAccount[b.accountId] = [];
+    byAccount[b.accountId]!.push(b);
+  }
+
+  // Build sorted month list across all batches
+  const allMonths = Array.from(new Set(
+    batches
+      .filter(b => b.periodStart)
+      .map(b => {
+        const d = new Date(b.periodStart!);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+      })
+  )).sort();
 
   const totalReconciled = batches.filter(b => b.reconciliation?.status === 'complete').length;
   const totalReview = batches.filter(b => b.reconciliation && b.reconciliation.status !== 'complete').length;
   const totalPending = batches.filter(b => !b.reconciliation).length;
 
+  // Sort accounts by code
+  const sortedAccountIds = Object.keys(byAccount).sort((a, b) => {
+    const accA = accounts.find(ac => ac.id === a);
+    const accB = accounts.find(ac => ac.id === b);
+    return (accA?.code ?? '').localeCompare(accB?.code ?? '');
+  });
+
+  function navigateToBatch(batch: BatchMeta) {
+    const p = new URLSearchParams({ batchId: batch.id, accountId: batch.accountId ?? '' });
+    if (batch.periodStart) p.set('periodStart', batch.periodStart);
+    if (batch.periodEnd) p.set('periodEnd', batch.periodEnd);
+    if (batch.openingBalanceCents != null) p.set('opening', String(batch.openingBalanceCents / 100));
+    if (batch.closingBalanceCents != null) p.set('closing', String(batch.closingBalanceCents / 100));
+    router.push('/dashboard/reconciliation?' + p.toString());
+  }
+
   return (
-    <div style={{ maxWidth: '900px' }}>
+    <div style={{ maxWidth: '1100px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', color: '#2E4057', marginBottom: '0.25rem' }}>Bank Reconciliation</h1>
-          <p style={{ color: '#666' }}>Review and reconcile all imported statements</p>
+          <p style={{ color: '#666' }}>Statement status by account and month</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {postReconResult && <span style={{ fontSize: '0.85rem', color: '#2E7D32', fontWeight: 600 }}>✓ {postReconResult}</span>}
@@ -162,50 +186,75 @@ function ReconciliationPage() {
           No imported statements yet. <a href="/dashboard/import" style={{ color: '#1d4ed8' }}>Import PDFs →</a>
         </div>
       ) : (
-        Object.entries(grouped).map(([inst, instBatches]) => {
-          const isOpen = expandedInst.has(inst);
-          const reconCount = instBatches.filter(b => b.reconciliation?.status === 'complete').length;
-          return (
-          <div key={inst} style={{ marginBottom: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: 'white' }}>
-            <button onClick={() => toggleInst(inst)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.875rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#2E4057', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {INST_LABELS[inst] ?? inst}
-                </span>
-                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{instBatches.length} statements</span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
-                  background: reconCount === instBatches.length ? '#dcfce7' : '#fee2e2',
-                  color: reconCount === instBatches.length ? '#166534' : '#dc2626' }}>
-                  {reconCount}/{instBatches.length} reconciled
-                </span>
-              </div>
-              <span style={{ color: '#9ca3af' }}>{isOpen ? '▲' : '▼'}</span>
-            </button>
-            {isOpen && (
-            <div style={{ borderTop: '1px solid #e5e7eb' }}>
-              {instBatches.map((batch, i) => (
-                <div key={batch.id} style={{ display: 'flex', alignItems: 'center', padding: '0.875rem 1rem', borderBottom: i < instBatches.length-1 ? '1px solid #f3f4f6' : 'none', gap: '1rem' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#1f2937' }}>{batch.filename}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>
-                      {batch.txnCount} transactions · {batch.periodStart ?? 'No period'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {sortedAccountIds.map(accountId => {
+            const acctBatches = byAccount[accountId] ?? [];
+            const acct = accounts.find(a => a.id === accountId);
+            const monthMap = batchByMonth(acctBatches);
+            const reconCount = acctBatches.filter(b => b.reconciliation?.status === 'complete').length;
+            const isOpen = expandedAccounts.has(accountId);
+            const allReconciled = reconCount === acctBatches.length;
+
+            return (
+              <div key={accountId} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: 'white' }}>
+                {/* Account header */}
+                <button
+                  onClick={() => toggleAccount(accountId)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#2E4057' }}>
+                      {acct ? `${acct.code} — ${acct.name}` : accountId}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
+                      background: allReconciled ? '#dcfce7' : '#fee2e2',
+                      color: allReconciled ? '#166534' : '#dc2626' }}>
+                      {reconCount}/{acctBatches.length} reconciled
+                    </span>
+                  </div>
+                  <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>{isOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {/* Month grid */}
+                {isOpen && (
+                  <div style={{ borderTop: '1px solid #e5e7eb', padding: '1rem 1.25rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {allMonths.map(ym => {
+                        const batch = monthMap[ym];
+                        if (!batch) return null;
+                        const [yr, mo] = ym.split('-');
+                        const label = `${MONTH_LABELS[parseInt(mo!)-1]} ${yr!.slice(2)}`;
+                        const isReconciled = batch.reconciliation?.status === 'complete';
+                        const isReview = batch.reconciliation && batch.reconciliation.status !== 'complete';
+
+                        return (
+                          <button
+                            key={ym}
+                            onClick={() => navigateToBatch(batch)}
+                            title={`${batch.txnCount} transactions · ${batch.filename}`}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center',
+                              padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1.5px solid',
+                              cursor: 'pointer', minWidth: '70px', gap: '0.2rem',
+                              background: isReconciled ? '#f0fdf4' : isReview ? '#fffbeb' : '#f9fafb',
+                              borderColor: isReconciled ? '#86efac' : isReview ? '#fcd34d' : '#e5e7eb',
+                            }}
+                          >
+                            <span style={{ fontSize: '1rem' }}>
+                              {isReconciled ? '✅' : isReview ? '⚠️' : '⏳'}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151' }}>{label}</span>
+                            <span style={{ fontSize: '0.65rem', color: '#9ca3af' }}>{batch.txnCount} txn</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div>{statusBadge(batch)}</div>
-                  <button
-                    onClick={() => { const p = new URLSearchParams({ batchId: batch.id, accountId: batch.accountId ?? '' }); if (batch.periodStart) p.set('periodStart', batch.periodStart); if (batch.periodEnd) p.set('periodEnd', batch.periodEnd); if (batch.openingBalanceCents != null) p.set('opening', String(batch.openingBalanceCents / 100)); if (batch.closingBalanceCents != null) p.set('closing', String(batch.closingBalanceCents / 100)); router.push('/dashboard/reconciliation?' + p.toString()); }}
-                    style={{ background: '#1d4ed8', color: 'white', border: 'none', borderRadius: '6px', padding: '0.4rem 0.875rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {batch.reconciliation ? 'Re-reconcile' : 'Reconcile →'}
-                  </button>
-                </div>
-              ))}
-            </div>
-            )}
-          </div>
-          );
-        })
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -230,7 +279,7 @@ function DetailView({ batchId, initialAccountId, initialPeriodStart, initialPeri
   useEffect(() => {
     fetch('/api/v1/accounts').then(r => r.json()).then(d => {
       if (d.data?.accounts) {
-        setAccounts((d.data.accounts as Array<{id:string;code:string;name:string;type:string}>).filter(a => a.type==='asset'||a.type==='liability'));
+        setAccounts((d.data.accounts as Array<{id:string;code:string;name:string;type:string;institution:string|null}>).filter(a => a.type==='asset'||a.type==='liability'));
         // Use initialAccountId from props (already set in useState), don't overwrite
         if (initialAccountId) setAccountId(initialAccountId);
       }
