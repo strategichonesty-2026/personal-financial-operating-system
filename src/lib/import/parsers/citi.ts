@@ -80,7 +80,8 @@ export function parseCiti(pdf: ExtractedPdf, period: StatementPeriod): ParsedTra
       const rowText = row.map(i => i.text).join(' ');
       if (/payments.*credits.*adjustments/i.test(rowText)) { currentSection = 'credit'; continue; }
       if (/standard purchases|purchases/i.test(rowText) && !/description/i.test(rowText)) { currentSection = 'debit'; continue; }
-      if (/fees charged|interest charged|account summary|totals year/i.test(rowText)) { currentSection = 'debit'; continue; }
+      if (/^fees charged$|^interest charged$|account summary|totals year/i.test(rowText.trim())) { currentSection = 'debit'; continue; }
+      if (/^total fees|^total interest/i.test(rowText.trim())) continue;
 
       const saleItems = row.filter(i => i.x>=COL2.SALE_MIN&&i.x<=COL2.SALE_MAX);
       const postItems = row.filter(i => i.x>=COL2.POST_MIN&&i.x<=COL2.POST_MAX);
