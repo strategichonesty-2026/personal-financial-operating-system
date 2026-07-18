@@ -94,6 +94,32 @@ interface PostingRule {
   sourceCode?: string;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CROWN JEWEL RULE — CC PARSER SECTION CHECKLIST (learned July 18 2026)
+// Every credit card parser MUST explicitly handle ALL transaction sections:
+//   1. Purchases / Charges / Debits       → direction: 'debit'
+//   2. Payments / Credits / Adjustments   → direction: 'credit'
+//   3. Fees                               → direction: 'debit'
+//   4. Interest                           → direction: 'debit'
+//   5. Reversals / Refunds                → direction: 'credit'
+//   6. Balance Transfers                  → debit (transfer in increases liability)
+//
+// DIAGNOSTIC PATTERN — small consistent reconciliation difference:
+//   1. Match difference amount to specific charge type on PDF
+//   2. Find which section header the parser is NOT detecting
+//   3. Add section header to section detector in parser
+//   4. Delete batches + re-import + reconcile
+//
+// NEW INSTITUTION CHECKLIST:
+//   □ Institution detection in pdf-extractor.ts
+//   □ Last4 extraction
+//   □ Period extraction (format varies per institution)
+//   □ Balance extraction (Previous Balance + New Balance labels)
+//   □ Transaction parser with ALL section types above
+//   □ Test against ALL months not just latest
+//   □ Verify reconciliation difference = $0 before moving on
+// ═══════════════════════════════════════════════════════════════
+
 const DESCRIPTION_RULES: PostingRule[] = [
   // PAYROLL
   { pattern: /from wells fargo bank/i,       debitCode: '1011', creditCode: '4011' },
