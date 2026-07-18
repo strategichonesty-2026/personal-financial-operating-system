@@ -90,6 +90,15 @@ export async function extractPdfText(
       }
     }
 
+    // Citi: "Account number ending in: 4621" as single item
+    if (!accountLast4) {
+      const citiAcct = items.find(i => /account number ending in:/i.test(i.text));
+      if (citiAcct) {
+        const m = citiAcct.text.match(/(\d{4})\s*$/);
+        if (m) accountLast4 = m[1]!;
+      }
+    }
+
     // Fallback: extract last4 from PDF "Account ending XXXX" or "ending in XXXX"
     if (!accountLast4) {
       const endingIdx = items.findIndex(i => /^ending(\s+in)?$/i.test(i.text.trim()));
@@ -111,6 +120,18 @@ export async function extractPdfText(
     if (throughIdx > 0) {
       periodStart = parseMonthDayYear(items[throughIdx - 1]?.text?.trim() ?? '');
       periodEnd   = parseMonthDayYear(items[throughIdx + 1]?.text?.trim() ?? '');
+    }
+
+    // Citi: "Billing Period: 03/04/26-04/02/26" as single combined item
+    if (!periodStart || !periodEnd) {
+      const billingCombined = items.find(i => /billing period:/i.test(i.text));
+      if (billingCombined) {
+        const m = billingCombined.text.match(/(\d{2})\/(\d{2})\/(\d{2})[-–](\d{2})\/(\d{2})\/(\d{2})/);
+        if (m) {
+          periodStart = `20${m[3]}-${m[1]}-${m[2]}`;
+          periodEnd   = `20${m[6]}-${m[4]}-${m[5]}`;
+        }
+      }
     }
 
     // Citi: "Billing" + "Period:" + "12/03/25-01/02/26" as separate items on same row
