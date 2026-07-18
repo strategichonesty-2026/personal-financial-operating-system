@@ -43,16 +43,14 @@ export async function GET() {
   const totalOwedCents = liabilities.reduce((s, a) => s + Number(a.closing_balance_cents), 0);
   const netWorthCents = totalCashCents - totalOwedCents;
 
-  // Get income and expense totals from journal entries
+  // Get income and expense totals from journal entry lines
   const incomeExpense = await db.execute(sql`
     SELECT a.type,
       SUM(CASE WHEN jel.side='credit' THEN jel.amount_cents ELSE 0 END) as credits,
       SUM(CASE WHEN jel.side='debit' THEN jel.amount_cents ELSE 0 END) as debits
     FROM journal_entry_lines jel
     JOIN accounts a ON a.id = jel.account_id
-    JOIN journal_entries je ON je.id = jel.journal_entry_id
-    WHERE je.user_id = ${userId}
-      AND a.type IN ('income', 'expense')
+    WHERE a.type IN ('income', 'expense')
     GROUP BY a.type
   `);
 
