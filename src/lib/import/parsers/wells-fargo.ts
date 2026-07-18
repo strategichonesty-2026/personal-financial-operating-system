@@ -15,7 +15,8 @@ const AMOUNT_RE = /^\d{1,3}(?:,\d{3})*\.\d{2}$/;
 
 function parseAmount(text: string): number | null {
   const cleaned = text.replace(/[$,]/g, '').trim();
-  return AMOUNT_RE.test(cleaned) ? Math.round(parseFloat(cleaned) * 100) : null;
+  // Test against cleaned string (no commas) — allow any number of digits before decimal
+  return /^\d+\.\d{2}$/.test(cleaned) ? Math.round(parseFloat(cleaned) * 100) : null;
 }
 
 function groupByRow(items: PdfTextItem[]): PdfTextItem[][] {
@@ -29,7 +30,7 @@ function groupByRow(items: PdfTextItem[]): PdfTextItem[][] {
   for (const item of sorted) {
     if (!item.text.trim()) continue;
     const samePage = currentPage === null || item.page === currentPage;
-    const sameRow  = currentY === null || Math.abs(item.y - currentY) <= 3;
+    const sameRow  = currentY === null || Math.abs(item.y - currentY) <= 5;
     if (samePage && sameRow) {
       current.push(item);
       if (currentY === null) currentY = item.y;
@@ -58,6 +59,35 @@ export function parseWellsFargo(
     const depItems  = row.filter(i => i.x >= COL.DEP_MIN  && i.x <= COL.DEP_MAX);
     const wdItems   = row.filter(i => i.x >= COL.WD_MIN   && i.x <= COL.WD_MAX);
     const balItems  = row.filter(i => i.x >= COL.BAL_MIN  && i.x <= COL.BAL_MAX);
+
+    // Multi-line description: row has desc text but no date and no amount
+    // Append it to the previous transaction's description
+    const hasDate   = dateItems.length > 0 && DATE_RE.test(dateItems[0]?.text ?? '');
+    const hasAmount = depItems.some(i => parseAmount(i.text) !== null) ||
+                      wdItems.some(i => parseAmount(i.text) !== null);
+    const hasDesc   = descItems.length > 0;
+
+    if (!hasDate && !hasAmount && hasDesc && results.length > 0) {
+      const continuation = descItems.map(i => i.text).filter(t => t !== '$').join(' ').trim();
+      // Only append if it looks like a real description continuation:
+      // - Not a page marker, total row, or footer
+      // - Not mostly numbers/symbols
+      // - Short enough to be a description continuation (under 60 chars)
+      const isPageMarker    = /page \d+ of \d+/i.test(continuation);
+      const isTotalRow      = /^(total|subtotal|\$\s*total)/i.test(continuation);
+      const isFooter        = /all rights reserved|wells fargo bank|©/i.test(continuation);
+      const isMostlyNumbers = /^[\d\s\$\.,\-\+%]+$/.test(continuation);
+      const hasRealWords    = /[a-zA-Z]{3,}/.test(continuation);
+      const isContinuation  = continuation.length > 0 &&
+                              continuation.length < 80 &&
+                              hasRealWords &&
+                              !isPageMarker && !isTotalRow &&
+                              !isFooter && !isMostlyNumbers;
+      if (isContinuation) {
+        results[results.length - 1]!.rawDescription += ' ' + continuation;
+      }
+      continue;
+    }
 
     if (!dateItems.length) continue;
     const dateText = dateItems[0]?.text ?? '';
