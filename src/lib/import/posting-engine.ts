@@ -330,6 +330,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
 
 { pattern: /electronic withdrawal to wells fargo card/i, isCCPayment: true, liabilityCode: '2024' },
   { pattern: /wf credit card des:auto pay.*6317/i,              isCCPayment: true, liabilityCode: '2024' },
+  { pattern: /wf credit card auto pay.*6317/i,                  isCCPayment: true, liabilityCode: '2024' },
   { pattern: /electronic withdrawal to chase credit crd/i,    isCCPayment: true, liabilityCode: '2012' },
   { pattern: /real time payment to gopu shrestha/i,           isTransfer: true, transferToCode: '1014' },
   { pattern: /us bank.*credit card|usbank.*autopay/i,      isCCPayment: true, liabilityCode: '2025' },
