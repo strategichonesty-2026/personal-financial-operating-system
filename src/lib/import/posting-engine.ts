@@ -335,6 +335,7 @@ const DESCRIPTION_RULES: PostingRule[] = [
   { pattern: /us bank.*credit card|usbank.*autopay/i,      isCCPayment: true, liabilityCode: '2025' },
   { pattern: /irs treas 310.*tax ref/i,                    creditCode: '4013' },
   { pattern: /mn dept of reven.*mnsttaxrfd/i,              creditCode: '4013' },
+  { pattern: /cardmember serv.*web pymt.*0546/i,           isCCPayment: true, liabilityCode: '2025' },
   { pattern: /cardmember serv.*web pymt/i,                 isCCPayment: true, liabilityCode: '2012' }, 
 
  { pattern: /to samsclub mstrcrd/i,         isCCPayment: true, liabilityCode: '2011' },
