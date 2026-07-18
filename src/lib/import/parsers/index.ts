@@ -13,6 +13,8 @@ export const parsers: Record<string, StatementParser> = {
   chase:       ChaseParser,
   us_bank:     USBankParser,
   bofa:         { institution: 'bofa', parse: () => [] },
+  wf_credit:   { institution: 'wf_credit', parse: () => [] },
+  usb_credit:  { institution: 'usb_credit', parse: () => [] },
 };
 
 export function getParser(institution: string): StatementParser | null {

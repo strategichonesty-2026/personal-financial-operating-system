@@ -275,11 +275,13 @@ export async function extractPdfText(
 export function detectInstitution(text: string): string | null {
   const t = text.toUpperCase();
   if (t.includes('BANK OF AMERICA') || t.includes('BANKOFAMERICA'))  return 'bofa';
+  if (/U\.S\.\s*BANK\s*SHIELD/i.test(text) || /U\.S\.\s*BANK.*VISA/i.test(text)) return 'usb_credit';
   if (t.includes('UNI-STATEMENT') || t.includes('800-US BANKS') ||
       t.includes('USBANK') || t.includes('U.S. BANK') ||
-      /U\.S\.\s*BANK\s*SHIELD/i.test(text) || t.includes('CARDMEMBER SERVICE'))  return 'us_bank';
+      t.includes('CARDMEMBER SERVICE'))  return 'us_bank';
   if (t.includes('CITICARDS') || t.includes('COSTCO ANYWHERE VISA')) return 'citi';
   if (t.includes('SYNCHRONY'))                                    return 'synchrony';
+  if (/WELLS FARGO REFLECT|WELLS FARGO.*VISA|WELLS FARGO.*CREDIT CARD/i.test(text)) return 'wf_credit';
   if (t.includes('WELLS FARGO'))                                  return 'wells_fargo';
   if (t.includes('CHASE'))                                        return 'chase';
   return null;

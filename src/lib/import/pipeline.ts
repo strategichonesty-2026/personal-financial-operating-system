@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { extractPdfText, detectInstitution } from './pdf-extractor';
 import { getParser } from './parsers';
 import { parseWellsFargo } from './parsers/wells-fargo';
+import { parseWFCreditCard, parseUSBCreditCard } from './parsers/cc-generic';
 import type { ExtractedPdf } from './pdf-extractor';
 import type { StatementPeriod, ParsedTransaction } from './parsers/types';
 import { parseCiti }       from './parsers/citi';
@@ -94,6 +95,8 @@ export async function runImportPipeline(
       synchrony:   parseSynchrony,
       chase:       parseChase,
       us_bank:     parseUSBank,
+      wf_credit:   parseWFCreditCard,
+      usb_credit:  parseUSBCreditCard,
     };
     let statementDepositsCents: number | null = null;
     let statementWithdrawalsCents: number | null = null;

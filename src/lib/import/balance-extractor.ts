@@ -41,6 +41,16 @@ export function extractBalances(pdf: ExtractedPdf, institution: string, filename
         openingBalanceCents: findAmountOnSameRow(pdf, /beginning balance/i),
         closingBalanceCents: findAmountOnSameRow(pdf, /ending balance on/i),
       };
+    case 'wf_credit':
+      return {
+        openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
+        closingBalanceCents: findAmountOnSameRow(pdf, /^= new balance$/i) ?? findAmountOnSameRow(pdf, /new balance/i),
+      };
+    case 'usb_credit':
+      return {
+        openingBalanceCents: findAmountOnSameRow(pdf, /previous balance/i),
+        closingBalanceCents: findAmountOnSameRow(pdf, /^new balance$/i) ?? findAmountOnSameRow(pdf, /new balance/i),
+      };
     case 'us_bank': {
       // US Bank: opening on same row as 'Beginning Balance on'
       // Closing: amount may be on next line after 'Ending Balance on'
