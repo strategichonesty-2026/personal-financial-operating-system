@@ -22,6 +22,8 @@ type Summary = {
 
 export default function SummaryPage() {
   const [data, setData] = useState<Summary | null>(null);
+  const [showBanks, setShowBanks] = useState(true);
+  const [showCards, setShowCards] = useState(true);
 
   useEffect(() => {
     fetch('/api/v1/summary').then(r => r.json()).then(setData);
@@ -73,10 +75,11 @@ export default function SummaryPage() {
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '10px', marginBottom: '1rem', overflow: 'hidden' }}>
-        <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f0f0f0', background: '#f8f9fa' }}>
+        <div onClick={() => setShowBanks(!showBanks)} style={{ padding: '0.75rem 1.25rem', borderBottom: showBanks ? '1px solid #f0f0f0' : 'none', background: '#f8f9fa', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem', color: '#2E4057' }}>Your bank accounts</p>
+          <span style={{ color: '#666', fontSize: '0.8rem' }}>{showBanks ? '▲' : '▼'}</span>
         </div>
-        {data.assets.map(a => (
+        {showBanks && data.assets.map(a => (
           <div key={a.code} style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ margin: 0, fontSize: '0.9rem', color: '#333' }}>{a.name}</p>
@@ -85,17 +88,18 @@ export default function SummaryPage() {
             <span style={{ fontWeight: 600, color: '#2E4057', fontSize: '0.95rem' }}>{fmt(a.closing_balance_cents)}</span>
           </div>
         ))}
-        <div style={{ padding: '0.75rem 1.25rem', display: 'flex', justifyContent: 'space-between', background: '#f0f7ff' }}>
+        {showBanks && <div style={{ padding: '0.75rem 1.25rem', display: 'flex', justifyContent: 'space-between', background: '#f0f7ff' }}>
           <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#2563eb' }}>Total cash</span>
           <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#2563eb' }}>{fmt(data.totalCashCents)}</span>
-        </div>
+        </div>}
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '10px', overflow: 'hidden' }}>
-        <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f0f0f0', background: '#f8f9fa' }}>
+        <div onClick={() => setShowCards(!showCards)} style={{ padding: '0.75rem 1.25rem', borderBottom: showCards ? '1px solid #f0f0f0' : 'none', background: '#f8f9fa', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem', color: '#2E4057' }}>Your credit cards</p>
+          <span style={{ color: '#666', fontSize: '0.8rem' }}>{showCards ? '▲' : '▼'}</span>
         </div>
-        {data.liabilities.map(a => (
+        {showCards && data.liabilities.map(a => (
           <div key={a.code} style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f5f5f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ margin: 0, fontSize: '0.9rem', color: '#333' }}>{a.name}</p>
@@ -104,10 +108,10 @@ export default function SummaryPage() {
             <span style={{ fontWeight: 600, color: '#9333ea', fontSize: '0.95rem' }}>{fmt(a.closing_balance_cents)}</span>
           </div>
         ))}
-        <div style={{ padding: '0.75rem 1.25rem', display: 'flex', justifyContent: 'space-between', background: '#faf5ff' }}>
+        {showCards && <div style={{ padding: '0.75rem 1.25rem', display: 'flex', justifyContent: 'space-between', background: '#faf5ff' }}>
           <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#9333ea' }}>Total owed</span>
           <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#9333ea' }}>{fmt(data.totalOwedCents)}</span>
-        </div>
+        </div>}
       </div>
 
       <p style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '1rem', textAlign: 'center' }}>
